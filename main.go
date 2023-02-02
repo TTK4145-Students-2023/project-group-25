@@ -2,8 +2,36 @@ package main
 
 import (
 	"Driver-go/elevio"
-	"fmt"
+	"fsm"
 )
+
+type InputChanReadStruct struct {
+	drv_floors chan int
+	drv_obstr  chan bool
+}
+
+type InputChanWriteStruct struct {
+	drv_floors chan int
+	drv_obstr  chan bool
+}
+
+func inputServer(inputServerRead InputChanReadStruct, inputServerWrite InputChanWriteStruct) {
+	var ELEV_floor int = -1
+	var ELEV_obstr bool = false
+
+	select {
+	case newFloor := <-inputServerWrite.drv_floors:
+		{
+			ELEV_floor = newFloor
+		}
+	case newObstructionVal := <-inputServerWrite.drv_obstr:
+		{
+			ELEV_obstr = newObstructionVal
+		}
+	case inputServerRead.drv_floors <- ELEV_floor:
+	case inputServerRead.drv_obstr <- ELEV_obstr:
+	}
+}
 
 func main() {
 
@@ -11,49 +39,24 @@ func main() {
 
 	elevio.Init("localhost:15657", numFloors)
 
-	var d elevio.MotorDirection = elevio.MD_Up
-	//elevio.SetMotorDirection(d)
+	var inputServerWrite InputChanWriteStruct
+	var inputServerRead InputChanReadStruct
 
 	drv_buttons := make(chan elevio.ButtonEvent)
-	drv_floors := make(chan int)
-	drv_obstr := make(chan bool)
 	drv_stop := make(chan bool)
+	FSM_orderExecuted := make(chan int)
+	FSM_destination := make(chan int)
 
 	go elevio.PollButtons(drv_buttons)
-	go elevio.PollFloorSensor(drv_floors)
-	go elevio.PollObstructionSwitch(drv_obstr)
+	go elevio.PollFloorSensor(inputServerWrite.drv_floors)
+	go elevio.PollObstructionSwitch(inputServerWrite.drv_obstr)
 	go elevio.PollStopButton(drv_stop)
 
+	go inputServer(inputServerRead, inputServerWrite)
+
+	go fsm.FSM(FSM_destination, inputServerRead.drv_floors, FSM_orderExecuted)
+
 	for {
-		select {
-		case a := <-drv_buttons:
-			fmt.Printf("%+v\n", a)
-			elevio.SetButtonLamp(a.Button, a.Floor, true)
 
-		case a := <-drv_floors:
-			fmt.Printf("%+v\n", a)
-			if a == numFloors-1 {
-				d = elevio.MD_Down
-			} else if a == 0 {
-				d = elevio.MD_Up
-			}
-			elevio.SetMotorDirection(d)
-
-		case a := <-drv_obstr:
-			fmt.Printf("%+v\n", a)
-			if a {
-				elevio.SetMotorDirection(elevio.MD_Stop)
-			} else {
-				elevio.SetMotorDirection(d)
-			}
-
-		case a := <-drv_stop:
-			fmt.Printf("%+v\n", a)
-			for f := 0; f < numFloors; f++ {
-				for b := elevio.ButtonType(0); b < 3; b++ {
-					elevio.SetButtonLamp(b, f, false)
-				}
-			}
-		}
 	}
 }
