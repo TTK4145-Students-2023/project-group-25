@@ -85,7 +85,7 @@ func FSM(FSM_setDestination, FSM_getDestination, FSM_orderExecuted chan int, inp
 			}
 
 		case STATE_DoorOpen:
-			if timer.TimeLeft() {
+			if !timer.TimeLeft() {
 				transitionToState(STATE_AwaitingOrder, currentFloor, destinationFloor)
 				FSM_orderExecuted <- currentFloor
 			}
