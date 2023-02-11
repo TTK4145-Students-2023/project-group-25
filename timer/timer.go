@@ -8,12 +8,13 @@ var setAlarmTime, getAlarmTime chan time.Time
 
 func TimerServer() {
 	alarmTime := time.Now().Local()
+	for {
+		select {
+		case newAlarmTime := <-setAlarmTime:
+			alarmTime = newAlarmTime
 
-	select {
-	case newAlarmTime := <-setAlarmTime:
-		alarmTime = newAlarmTime
-
-	case getAlarmTime <- alarmTime:
+		case getAlarmTime <- alarmTime:
+		}
 	}
 }
 
@@ -23,8 +24,5 @@ func SetTimer(seconds int) {
 
 func TimeLeft() bool {
 	difference := (<-getAlarmTime).Sub(time.Now().Local())
-	if difference < 0 {
-		return false
-	}
-	return true
+	return difference >= 0
 }

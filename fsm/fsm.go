@@ -2,7 +2,7 @@ package fsm
 
 import (
 	"Driver-go/elevio"
-	"Driver-go/orderhandler"
+	server "Driver-go/servers"
 	"Driver-go/timer"
 )
 
@@ -40,14 +40,15 @@ func atDefinedFloor(currentFloor int) bool {
 	return currentFloor != -1
 }
 
-func transitionToState(state ElevatorState, currentFloor, destinationFloor int) {
+func transitionToState(state ElevatorState) {
 	switch state {
 	case STATE_Init:
 		elevio.SetMotorDirection(elevio.MD_Down)
 	case STATE_AwaitingOrder:
+		elevio.SetMotorDirection(elevio.MD_Stop)
 		elevio.SetDoorOpenLamp(false)
 	case STATE_ExecutingOrder:
-		elevio.SetMotorDirection(calculateMovingDirection(currentFloor, destinationFloor))
+		elevio.SetMotorDirection(calculateMovingDirection(server.GetCurrentFloor(), server.GetDestinationFloor()))
 	case STATE_DoorOpen:
 		elevio.SetDoorOpenLamp(true)
 		elevio.SetMotorDirection(elevio.MD_Stop)
@@ -55,38 +56,35 @@ func transitionToState(state ElevatorState, currentFloor, destinationFloor int) 
 	}
 }
 
-func FSM(FSM_setDestination, FSM_getDestination, FSM_orderExecuted chan int, inputServerRead orderhandler.InputServerChan) {
+func FSM(FSM_orderExecuted chan int) {
 
 	go timer.TimerServer()
-	go destinationServer(FSM_setDestination, FSM_getDestination)
 
-	currentFloor, destinationFloor := <-inputServerRead.DRV_floors, <-FSM_getDestination
 	var state ElevatorState = STATE_Init
-
-	transitionToState(STATE_Init, currentFloor, destinationFloor)
+	transitionToState(STATE_Init)
 
 	for {
-		currentFloor, destinationFloor = <-inputServerRead.DRV_floors, <-FSM_getDestination
+		currentFloor, destinationFloor := server.GetCurrentFloor(), server.GetDestinationFloor()
 
 		switch state {
 		case STATE_Init:
 			if atDefinedFloor(currentFloor) {
-				transitionToState(STATE_AwaitingOrder, currentFloor, destinationFloor)
+				transitionToState(STATE_AwaitingOrder)
 			}
 
 		case STATE_AwaitingOrder:
 			if atDefinedFloor(currentFloor) && (currentFloor != destinationFloor) {
-				transitionToState(STATE_ExecutingOrder, currentFloor, destinationFloor)
+				transitionToState(STATE_ExecutingOrder)
 			}
 
 		case STATE_ExecutingOrder:
 			if currentFloor == destinationFloor {
-				transitionToState(STATE_DoorOpen, currentFloor, destinationFloor)
+				transitionToState(STATE_DoorOpen)
 			}
 
 		case STATE_DoorOpen:
 			if !timer.TimeLeft() {
-				transitionToState(STATE_AwaitingOrder, currentFloor, destinationFloor)
+				transitionToState(STATE_AwaitingOrder)
 				FSM_orderExecuted <- currentFloor
 			}
 		}
