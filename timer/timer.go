@@ -21,8 +21,7 @@ func SetTimer(seconds int) {
 	setAlarmTime <- time.Now().Local().Add(time.Second * time.Duration(seconds))
 }
 
-func timeLeft() bool {
-
+func TimeLeft() bool {
 	difference := (<-getAlarmTime).Sub(time.Now().Local())
 	if difference < 0 {
 		return false
