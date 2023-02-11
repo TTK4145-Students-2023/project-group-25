@@ -2,9 +2,9 @@ package fsm
 
 import (
 	"Driver-go/elevio"
+	"Driver-go/orderhandler"
+	"Driver-go/timer"
 )
-
-var getFloor = make(chan Floor)
 
 type ElevatorState int
 
@@ -15,25 +15,19 @@ const (
 	STATE_DoorOpen                     = 3
 )
 
-type Floor struct {
-	current     int
-	destination int
-}
-
-func floorServer(setFloor <-chan Floor, getFloor chan<- Floor) {
-	var floor Floor
+func destinationServer(setDestination <-chan int, getDestination chan<- int) {
+	var destination int
 	for {
 		select {
-		case newFloor := <-setFloor:
-			floor = newFloor
-		case getFloor <- floor:
+		case newDestination := <-setDestination:
+			destination = newDestination
+		case getDestination <- destination:
 		}
 	}
 }
 
 func calculateMovingDirection(currentFloor, destinationFloor int) elevio.MotorDirection {
-	floorDifference := destinationFloor - currentFloor
-	if floorDifference > 0 {
+	if floorDifference := destinationFloor - currentFloor; floorDifference > 0 {
 		return elevio.MD_Up
 	} else if floorDifference < 0 {
 		return elevio.MD_Down
@@ -46,37 +40,55 @@ func atDefinedFloor(currentFloor int) bool {
 	return currentFloor != -1
 }
 
-func transitionToState(state ElevatorState) {
+func transitionToState(state ElevatorState, currentFloor, destinationFloor int) {
 	switch state {
 	case STATE_Init:
+		elevio.SetMotorDirection(elevio.MD_Down)
 	case STATE_AwaitingOrder:
+		elevio.SetDoorOpenLamp(false)
 	case STATE_ExecutingOrder:
-		{
-			elevio.SetMotorDirection(calculateMovingDirection((<-getFloor).current, (<-getFloor).destination))
-		}
-
+		elevio.SetMotorDirection(calculateMovingDirection(currentFloor, destinationFloor))
 	case STATE_DoorOpen:
+		elevio.SetDoorOpenLamp(true)
+		elevio.SetMotorDirection(elevio.MD_Stop)
+		timer.SetTimer(3)
 	}
 }
 
-func FSM(setFloor <-chan Floor, getOrderExecuted chan<- int) {
+func FSM(FSM_setDestination, FSM_getDestination, FSM_orderExecuted chan int, inputServerRead orderhandler.InputServerChan) {
 
-	go floorServer(setFloor, getFloor)
+	go timer.TimerServer()
+	go destinationServer(FSM_setDestination, FSM_getDestination)
 
+	currentFloor, destinationFloor := <-inputServerRead.DRV_floors, <-FSM_getDestination
 	var state ElevatorState = STATE_Init
-	elevio.SetMotorDirection(elevio.MD_Down)
+
+	transitionToState(STATE_Init, currentFloor, destinationFloor)
 
 	for {
+		currentFloor, destinationFloor = <-inputServerRead.DRV_floors, <-FSM_getDestination
+
 		switch state {
 		case STATE_Init:
-			if atDefinedFloor((<-getFloor).current) {
-				transitionToState(STATE_AwaitingOrder)
+			if atDefinedFloor(currentFloor) {
+				transitionToState(STATE_AwaitingOrder, currentFloor, destinationFloor)
 			}
+
 		case STATE_AwaitingOrder:
+			if atDefinedFloor(currentFloor) && (currentFloor != destinationFloor) {
+				transitionToState(STATE_ExecutingOrder, currentFloor, destinationFloor)
+			}
 
 		case STATE_ExecutingOrder:
+			if currentFloor == destinationFloor {
+				transitionToState(STATE_DoorOpen, currentFloor, destinationFloor)
+			}
 
 		case STATE_DoorOpen:
+			if timer.TimeLeft() {
+				transitionToState(STATE_AwaitingOrder, currentFloor, destinationFloor)
+				FSM_orderExecuted <- currentFloor
+			}
 		}
 	}
 }
