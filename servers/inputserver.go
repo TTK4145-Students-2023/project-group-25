@@ -11,9 +11,9 @@ var (
 	SetObstrValChan     = make(chan bool)
 	SetStopValChan      = make(chan bool)
 
-	getCurrentFloorsChan = make(chan int)
-	getObstrValChan      = make(chan bool)
-	getStopValChan       = make(chan bool)
+	getCurrentFloorChan = make(chan int)
+	getObstrValChan     = make(chan bool)
+	getStopValChan      = make(chan bool)
 )
 
 func InputServer() {
@@ -27,13 +27,13 @@ func InputServer() {
 		case inputData.Obstr = <-SetObstrValChan:
 		case inputData.Stop = <-SetStopValChan:
 
-		case getCurrentFloorsChan <- inputData.Floors:
+		case getCurrentFloorChan <- inputData.Floors:
 		case getObstrValChan <- inputData.Obstr:
 		case getStopValChan <- inputData.Stop:
 		}
 	}
 }
 
-func GetCurrentFloor() int { return <-getCurrentFloorsChan }
+func GetCurrentFloor() int { return <-getCurrentFloorChan }
 func GetObstrVal() bool    { return <-getObstrValChan }
 func GetStopVal() bool     { return <-getStopValChan }
