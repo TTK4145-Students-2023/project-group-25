@@ -29,26 +29,10 @@ func atDefinedFloor(currentFloor int) bool {
 	return currentFloor != -1
 }
 
-func transitionToState(state ElevatorState) {
-	switch state {
-	case STATE_Init:
-		elevio.SetMotorDirection(elevio.MD_Down)
-	case STATE_AwaitingOrder:
-		elevio.SetMotorDirection(elevio.MD_Stop)
-		elevio.SetDoorOpenLamp(false)
-	case STATE_ExecutingOrder:
-		newMovingDirection := calculateMovingDirection(server.GetCurrentFloor(), server.GetDestinationFloor())
-		elevio.SetMotorDirection(newMovingDirection)
-	case STATE_DoorOpen:
-		elevio.SetMotorDirection(elevio.MD_Stop)
-		elevio.SetDoorOpenLamp(true)
-		timer.SetTimer(3)
-	}
-}
-
 func FSM(FSM_initCompleteChan, FSM_floorVisitedChan chan int) {
 	var state ElevatorState = STATE_Init
-	transitionToState(STATE_Init)
+	elevio.SetDoorOpenLamp(false)
+	elevio.SetMotorDirection(elevio.MD_Down)
 
 	for {
 		currentFloor, destinationFloor := server.GetCurrentFloor(), server.GetDestinationFloor()
@@ -56,7 +40,7 @@ func FSM(FSM_initCompleteChan, FSM_floorVisitedChan chan int) {
 		switch state {
 		case STATE_Init:
 			if atDefinedFloor(currentFloor) {
-				transitionToState(STATE_AwaitingOrder)
+				elevio.SetMotorDirection(elevio.MD_Stop)
 				state = STATE_AwaitingOrder
 				FSM_initCompleteChan <- 1
 			}
@@ -64,19 +48,22 @@ func FSM(FSM_initCompleteChan, FSM_floorVisitedChan chan int) {
 		case STATE_AwaitingOrder:
 			if server.DestinationHasChanged() {
 				server.DestinationChangeIsRecieved()
-				transitionToState(STATE_ExecutingOrder)
+				newMovingDirection := calculateMovingDirection(currentFloor, destinationFloor)
+				elevio.SetMotorDirection(newMovingDirection)
 				state = STATE_ExecutingOrder
 			}
 
 		case STATE_ExecutingOrder:
 			if currentFloor == destinationFloor {
-				transitionToState(STATE_DoorOpen)
+				elevio.SetMotorDirection(elevio.MD_Stop)
+				elevio.SetDoorOpenLamp(true)
+				timer.SetTimer(3)
 				state = STATE_DoorOpen
 			}
 
 		case STATE_DoorOpen:
 			if !timer.TimeLeft() && !server.GetObstrVal() {
-				transitionToState(STATE_AwaitingOrder)
+				elevio.SetDoorOpenLamp(false)
 				state = STATE_AwaitingOrder
 				FSM_floorVisitedChan <- currentFloor
 			}
