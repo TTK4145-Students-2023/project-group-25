@@ -7,9 +7,13 @@ type InputData struct {
 }
 
 var (
-	server_floors = make(chan int)
-	server_obstr  = make(chan bool)
-	server_stop   = make(chan bool)
+	SetCurrentFloorChan = make(chan int)
+	SetObstrValChan     = make(chan bool)
+	SetStopValChan      = make(chan bool)
+
+	getCurrentFloorsChan = make(chan int)
+	getObstrValChan      = make(chan bool)
+	getStopValChan       = make(chan bool)
 )
 
 func InputServer() {
@@ -19,30 +23,17 @@ func InputServer() {
 		Stop:   false}
 	for {
 		select {
-		case newFloor := <-server_floors:
-			{
-				inputData.Floors = newFloor
-			}
-		case newObstructionVal := <-server_obstr:
-			{
-				inputData.Obstr = newObstructionVal
-			}
-		case newStopVal := <-server_stop:
-			{
-				inputData.Stop = newStopVal
-			}
-		case server_floors <- inputData.Floors:
-		case server_obstr <- inputData.Obstr:
-		case server_stop <- inputData.Stop:
+		case inputData.Floors = <-SetCurrentFloorChan:
+		case inputData.Obstr = <-SetObstrValChan:
+		case inputData.Stop = <-SetStopValChan:
+
+		case getCurrentFloorsChan <- inputData.Floors:
+		case getObstrValChan <- inputData.Obstr:
+		case getStopValChan <- inputData.Stop:
 		}
 	}
-
 }
 
-func GetCurrentFloor() int { return <-server_floors }
-func GetObstrVal() bool    { return <-server_obstr }
-func GetStopVal() bool     { return <-server_stop }
-
-func SetCurrentFloor(floor int) { server_floors <- floor }
-func SetObstrVal(obstr bool)    { server_obstr <- obstr }
-func SetStopVal(stop bool)      { server_stop <- stop }
+func GetCurrentFloor() int { return <-getCurrentFloorsChan }
+func GetObstrVal() bool    { return <-getObstrValChan }
+func GetStopVal() bool     { return <-getStopValChan }

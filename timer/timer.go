@@ -4,15 +4,16 @@ import (
 	"time"
 )
 
-var setAlarmTime, getAlarmTime chan time.Time
+var (
+	setAlarmTime = make(chan time.Time)
+	getAlarmTime = make(chan time.Time)
+)
 
-func TimerServer() {
+func Timer() {
 	alarmTime := time.Now().Local()
 	for {
 		select {
-		case newAlarmTime := <-setAlarmTime:
-			alarmTime = newAlarmTime
-
+		case alarmTime = <-setAlarmTime:
 		case getAlarmTime <- alarmTime:
 		}
 	}

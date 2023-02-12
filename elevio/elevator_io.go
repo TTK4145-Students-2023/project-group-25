@@ -1,7 +1,6 @@
 package elevio
 
 import (
-	"Driver-go/servers"
 	"fmt"
 	"net"
 	"sync"
@@ -87,37 +86,37 @@ func PollButtons(receiver chan<- ButtonEvent) {
 	}
 }
 
-func PollFloorSensor() {
+func PollFloorSensor(receiver chan<- int) {
 	prev := -1
 	for {
 		time.Sleep(_pollRate)
 		v := GetFloor()
 		if v != prev && v != -1 {
-			server.SetCurrentFloor(v)
+			receiver <- v
 		}
 		prev = v
 	}
 }
 
-func PollStopButton() {
+func PollStopButton(receiver chan<- bool) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
 		v := GetStop()
 		if v != prev {
-			server.SetStopVal(v)
+			receiver <- v
 		}
 		prev = v
 	}
 }
 
-func PollObstructionSwitch() {
+func PollObstructionSwitch(receiver chan<- bool) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
 		v := GetObstruction()
 		if v != prev {
-			server.SetObstrVal(v)
+			receiver <- v
 		}
 		prev = v
 	}

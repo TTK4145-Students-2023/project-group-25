@@ -15,17 +15,6 @@ const (
 	STATE_DoorOpen                     = 3
 )
 
-func destinationServer(setDestination <-chan int, getDestination chan<- int) {
-	var destination int
-	for {
-		select {
-		case newDestination := <-setDestination:
-			destination = newDestination
-		case getDestination <- destination:
-		}
-	}
-}
-
 func calculateMovingDirection(currentFloor, destinationFloor int) elevio.MotorDirection {
 	if floorDifference := destinationFloor - currentFloor; floorDifference > 0 {
 		return elevio.MD_Up
@@ -48,18 +37,16 @@ func transitionToState(state ElevatorState) {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		elevio.SetDoorOpenLamp(false)
 	case STATE_ExecutingOrder:
-		elevio.SetMotorDirection(calculateMovingDirection(server.GetCurrentFloor(), server.GetDestinationFloor()))
+		newMovingDirection := calculateMovingDirection(server.GetCurrentFloor(), server.GetDestinationFloor())
+		elevio.SetMotorDirection(newMovingDirection)
 	case STATE_DoorOpen:
-		elevio.SetDoorOpenLamp(true)
 		elevio.SetMotorDirection(elevio.MD_Stop)
+		elevio.SetDoorOpenLamp(true)
 		timer.SetTimer(3)
 	}
 }
 
-func FSM(FSM_orderExecuted chan int) {
-
-	go timer.TimerServer()
-
+func FSM(FSM_initCompleteChan, FSM_floorVisitedChan chan int) {
 	var state ElevatorState = STATE_Init
 	transitionToState(STATE_Init)
 
@@ -70,22 +57,28 @@ func FSM(FSM_orderExecuted chan int) {
 		case STATE_Init:
 			if atDefinedFloor(currentFloor) {
 				transitionToState(STATE_AwaitingOrder)
+				state = STATE_AwaitingOrder
+				FSM_initCompleteChan <- 1
 			}
 
 		case STATE_AwaitingOrder:
-			if atDefinedFloor(currentFloor) && (currentFloor != destinationFloor) {
+			if server.DestinationHasChanged() {
+				server.DestinationChangeIsRecieved()
 				transitionToState(STATE_ExecutingOrder)
+				state = STATE_ExecutingOrder
 			}
 
 		case STATE_ExecutingOrder:
 			if currentFloor == destinationFloor {
 				transitionToState(STATE_DoorOpen)
+				state = STATE_DoorOpen
 			}
 
 		case STATE_DoorOpen:
-			if !timer.TimeLeft() {
+			if !timer.TimeLeft() && !server.GetObstrVal() {
 				transitionToState(STATE_AwaitingOrder)
-				FSM_orderExecuted <- currentFloor
+				state = STATE_AwaitingOrder
+				FSM_floorVisitedChan <- currentFloor
 			}
 		}
 	}

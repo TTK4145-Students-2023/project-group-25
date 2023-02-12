@@ -1,18 +1,28 @@
 package server
 
-var server_destination = make(chan int)
+var (
+	setDestinationChan     = make(chan int)
+	getDestinationChan     = make(chan int)
+	destinationChangedChan = make(chan bool)
+)
 
 func DestinationServer() {
 	destination := -1
+	destinationChanged := false
 	for {
 		select {
-		case newDestination := <-server_destination:
-			destination = newDestination
+		case destination = <-setDestinationChan:
+			destinationChanged = true
 
-		case server_destination <- destination:
+		case destinationChanged = <-destinationChangedChan:
+		case destinationChangedChan <- destinationChanged:
+		case getDestinationChan <- destination:
 		}
 	}
 }
 
-func GetDestinationFloor() int      { return <-server_destination }
-func SetDestinationFloor(floor int) { server_destination <- floor }
+func SetDestinationFloor(floor int) { setDestinationChan <- floor }
+
+func GetDestinationFloor() int     { return <-getDestinationChan }
+func DestinationChangeIsRecieved() { destinationChangedChan <- false }
+func DestinationHasChanged() bool  { return <-destinationChangedChan }
