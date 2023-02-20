@@ -1,96 +1,101 @@
+package orderdistributor
+
 import (
-	"elvio/elevator_io.go"
+	"Driver-go/elevio"
 )
 
-latest_ordermatrix := [] int 
+var (
+	latest_ordermatrix []int
+)
 
 type DistributorState int
 
+type ElevData struct {
+	Behavior    string `json:"behaviour"`
+	Floor       int    `json:"floor"`
+	Direction   string `json:"direction"`
+	CabRequests []bool `json:"cabRequests"`
+}
+
 const (
-	STATE_updateLocalData           DistributorState = 0
-	STATE_distributeLocalChanges              		 = 1
+	STATE_updateLocalData        DistributorState = 0
+	STATE_distributeLocalChanges DistributorState = 1
 )
 
-
-//input channels 
-var(
-allElevData_fromP2P = make(chan ElevData)
-btnPress = make(chan ButtonEvent)
-orderExecuted = make(chan bool)
-localElevData = make(chan ElevData)
+// input channels
+var (
+	allElevData_fromP2P = make(chan ElevData)
+	btnPress            = make(chan elevio.ButtonEvent)
+	orderExecuted       = make(chan bool)
+	localElevData       = make(chan ElevData)
 )
-//output channels 
-allElevData_toP2P := make(chan ElevData)
-allElevData_toAssigner := make(chan ElevData)
 
+// output channels
+var (
+	allElevData_toP2P      = make(chan ElevData)
+	allElevData_toAssigner = make(chan ElevData)
+)
 
 func dataDistributor(
-	allElevData_fromP2P 		<-chan ElevData,
-	btnPress 					<-chan ButtonEvent,
-	orderExecuted 				<-chan bool,
-	localElevData 				<-chan ElevData,         //not used as fsm trigger
-	allElevData_toP2P 			chan<- ElevData,
-	allElevData_toAssigner 		chan<- ElevData,
+	allElevData_fromP2P <-chan ElevData,
+	btnPress <-chan elevio.ButtonEvent,
+	orderExecuted <-chan bool,
+	localElevData <-chan ElevData, //not used as fsm trigger
+	allElevData_toP2P chan<- ElevData,
+	allElevData_toAssigner chan<- ElevData,
 
-){
+) {
 
 	for {
-		distributor_state = STATE_updateData
+		distributor_state := STATE_updateLocalData
 		select {
-
-
 		case allElevData := <-allElevData_fromP2P:
 			switch distributor_state {
-				case STATE_updateData: 
-					//update local storage of data and send json to assigner
+			case STATE_updateLocalData:
 
-					latestValid_ordermatrix, _  = validateData(allElevData)
-					allElevData_toAssigner <- latestValid_ordermatrix.json()
-					
-				case STATE_distributeLocalChange: 
-					// check if input==output
-					// if true: switch state and turn on/off light 
-					//if false: send change again 
+				//update local storage of data and send json to assigner
 
-					_, succesfully_distributed := validateData(allElevData)
+				//latestValid_ordermatrix, _ = validateData(allElevData)
+				//allElevData_toAssigner <- latestValid_ordermatrix.json()
 
-					if succesfully_distributed{
-						distributor_state = STATE_updateLocalData
-						toggle light
-					}
+				UNUSED(allElevData)
 
-		
-							
+			case STATE_distributeLocalChanges:
+				// check if input==output
+				// if true: switch state and turn on/off light
+				//if false: send change again
+
+				//_, succesfully_distributed := validateData(allElevData)
+
 			}
 
-		case executedOrder := <- orderExecuted:
+		case executedOrder := <-orderExecuted:
 			switch distributor_state {
-				case STATE_updateData: 
-					//add order change to elevdata and send to p2p
-					//switch state
-					
-				case STATE_distributeLocalChange: 
-					// dont accept orderchanges when distrubiting 
+			case STATE_updateLocalData:
+				//add order change to elevdata and send to p2p
+				//switch state
+				UNUSED(executedOrder)
 
-		
-							
+			case STATE_distributeLocalChanges:
+				// dont accept orderchanges when distrubiting
+
 			}
-			
-		case pressedBtn := <- ButtonEvent:
-			switch dist_state {
-				case STATE_updateData: 
-					//add order change to elevdata and send to p2p
-					//switch state
-					
-				case STATE_distributeLocalChange: 
-					// dont accept orderchanges when distrubiting 
-									
+
+		case pressedBtn := <-btnPress:
+			switch distributor_state {
+			case STATE_updateLocalData:
+				//add order change to elevdata and send to p2p
+				//switch state
+
+				UNUSED(pressedBtn)
+
+			case STATE_distributeLocalChanges:
+				// dont accept orderchanges when distrubiting
+
 			}
 		}
 	}
 }
-		
 
-
-
-
+// UNUSED allows unused variables to be included in Go programs
+func UNUSED(x ...interface{}) {}
