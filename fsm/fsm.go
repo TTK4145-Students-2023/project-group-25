@@ -2,71 +2,139 @@ package fsm
 
 import (
 	"Driver-go/elevio"
-	server "Driver-go/servers"
 	"Driver-go/timer"
+	"time"
 )
-
-type ElevatorState int
 
 const (
-	STATE_Init           ElevatorState = 0
-	STATE_AwaitingOrder                = 1
-	STATE_ExecutingOrder               = 2
-	STATE_DoorOpen                     = 3
+	N_FLOORS  = 4
+	N_BUTTONS = 3
 )
 
-func calculateMovingDirection(currentFloor, destinationFloor int) elevio.MotorDirection {
-	if floorDifference := destinationFloor - currentFloor; floorDifference > 0 {
-		return elevio.MD_Up
-	} else if floorDifference < 0 {
-		return elevio.MD_Down
-	} else {
-		return elevio.MD_Stop
+type ClearRequestVariant int
+
+const (
+	// Assume everyone waiting for the elevator gets on the elevator, even if
+	// they will be traveling in the "wrong" direction for a while
+	CV_All ClearRequestVariant = 0
+
+	// Assume that only those that want to travel in the current direction
+	// enter the elevator, and keep waiting outside otherwise
+	CV_InDirn ClearRequestVariant = 1
+)
+
+type Config struct {
+	clearRequestVariant ClearRequestVariant
+	doorOpenDuration_s  time.Duration
+}
+
+type Elevator struct {
+	floor     int
+	dirn      elevio.MotorDirection
+	requests  [N_FLOORS][N_BUTTONS]bool
+	behaviour ElevatorBehaviour
+	config    Config
+}
+
+type ElevatorBehaviour int
+
+const (
+	EB_Idle     ElevatorBehaviour = 0
+	EB_Moving   ElevatorBehaviour = 1
+	EB_DoorOpen ElevatorBehaviour = 2
+)
+
+func uninitializedElevator() Elevator {
+	return Elevator{
+		floor:     -1,
+		dirn:      elevio.MD_Stop,
+		requests:  [N_FLOORS][N_BUTTONS]bool{},
+		behaviour: EB_Idle,
+		config:    Config{clearRequestVariant: CV_InDirn, doorOpenDuration_s: 3},
 	}
 }
 
-func atDefinedFloor(currentFloor int) bool {
-	return currentFloor != -1
-}
+func FSM(
+	floor_requests <-chan [N_FLOORS][N_BUTTONS]bool,
+	drv_floors <-chan int,
+	drv_obstr <-chan bool,
+	drv_orderExecuted chan <- elevio.ButtonEvent) {
+	
+	elevio.Init("localhost:15657", N_FLOORS)
 
-func FSM(FSM_initCompleteChan, FSM_floorVisitedChan chan int) {
-	var state ElevatorState = STATE_Init
-	elevio.SetDoorOpenLamp(false)
-	elevio.SetMotorDirection(elevio.MD_Down)
+	e := uninitializedElevator()
+	obstr := false
+	timeout := make(chan bool)
+
+	go timer.TimerMain(timeout)
+
+	select{
+	case e.floor = <-drv_floors:
+	default:
+	}
+
+	if e.floor == -1 {
+		elevio.SetMotorDirection(elevio.MD_Down)
+		e.dirn = elevio.MD_Down
+		e.behaviour = EB_Moving
+
+		e.floor = <-drv_floors
+
+		elevio.SetMotorDirection(elevio.MD_Stop)
+		e.dirn = elevio.MD_Stop
+		e.behaviour = EB_Idle
+	}
 
 	for {
-		currentFloor, destinationFloor := server.GetCurrentFloor(), server.GetDestinationFloor()
-
-		switch state {
-		case STATE_Init:
-			if atDefinedFloor(currentFloor) {
-				elevio.SetMotorDirection(elevio.MD_Stop)
-				state = STATE_AwaitingOrder
-				FSM_initCompleteChan <- 1
+		select {
+		case e.floor = <-drv_floors:
+			elevio.SetFloorIndicator(e.floor)
+			switch e.behaviour {
+			case EB_Idle:
+			case EB_Moving:
+				if requests_shouldStop(e) {
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					elevio.SetDoorOpenLamp(true)
+					e = requests_clearAtCurrentFloor(e)
+					timer.TimerStart(e.config.doorOpenDuration_s)
+					e.behaviour = EB_DoorOpen
+				}
+			case EB_DoorOpen:
 			}
 
-		case STATE_AwaitingOrder:
-			if server.DestinationHasChanged() {
-				server.DestinationChangeIsRecieved()
-				newMovingDirection := calculateMovingDirection(currentFloor, destinationFloor)
-				elevio.SetMotorDirection(newMovingDirection)
-				state = STATE_ExecutingOrder
-			}
+		case <-timeout:
+			switch e.behaviour {
+			case EB_Idle:
+			case EB_Moving:
+			case EB_DoorOpen:
+				dirnBehaviourPair := requests_chooseDirection(e)
+				e.dirn = dirnBehaviourPair.dirn
+				e.behaviour = dirnBehaviourPair.behaviour
+				switch e.behaviour {
+				case EB_DoorOpen:
+					timer.TimerStart(e.config.doorOpenDuration_s)
+					e = requests_clearAtCurrentFloor(e)
+					drv_orderExecuted <- elevio.ButtonEvent{Floor : e.floor, Button: elevio.BT_Cab}
 
-		case STATE_ExecutingOrder:
-			if currentFloor == destinationFloor {
-				elevio.SetMotorDirection(elevio.MD_Stop)
-				elevio.SetDoorOpenLamp(true)
-				timer.SetTimer(3)
-				state = STATE_DoorOpen
+				case EB_Moving:
+					elevio.SetDoorOpenLamp(false)
+					elevio.SetMotorDirection(e.dirn)
+					drv_orderExecuted <- elevio.ButtonEvent{Floor : e.floor, Button: elevio.BT_Cab}
+				case EB_Idle:
+					elevio.SetDoorOpenLamp(false)
+					elevio.SetMotorDirection(e.dirn)
+					drv_orderExecuted <- elevio.ButtonEvent{Floor : e.floor, Button: elevio.BT_Cab}
+				}
 			}
-
-		case STATE_DoorOpen:
-			if !timer.TimeLeft() && !server.GetObstrVal() {
-				elevio.SetDoorOpenLamp(false)
-				state = STATE_AwaitingOrder
-				FSM_floorVisitedChan <- currentFloor
+		case obstr = <-drv_obstr:
+			if obstr {
+				timer.TimerKill()
+			} else if !obstr && e.behaviour == EB_DoorOpen {
+				timer.TimerStart(e.config.doorOpenDuration_s)
 			}
+		case e.requests = <-floor_requests:
 		}
+
 	}
+
 }
