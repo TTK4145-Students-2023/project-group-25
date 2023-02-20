@@ -26,6 +26,8 @@ func MasterSlaveAssigner (){
 	print.fmt(selfIPaddr)
 }
 
+// small comment 
+
 func main(){
 	go MasterSlaveAssigner
 }
