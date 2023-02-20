@@ -1,34 +1,25 @@
-package MasterSlaveAssigner
 package main
 
 import (
-    "log"
-    "net"
-    "strings"
-	"fmt" 
+	"fmt"
+	"log"
+	"net"
 )
 
 // Get preferred outbound ip of this machine
-func GetOutboundIP() net.IP {
-    conn, err := net.Dial("udp", "8.8.8.8:80")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer conn.Close()
+func GetLocalIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
 
-    localAddr := conn.LocalAddr().(*net.UDPAddr)
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
-    return localAddr.IP
+	return localAddr.IP
 }
 
-func MasterSlaveAssigner (){
-	selfIPaddr = GetOutboundIP
-	print.fmt(selfIPaddr)
+func MasterSlaveAssigner() {
+	var localIPaddr string = GetLocalIP().String()
+	fmt.Printf(localIPaddr)
 }
-
-// test test
-
-func main(){
-	go MasterSlaveAssigner
-}
-
