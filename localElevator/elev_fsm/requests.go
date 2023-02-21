@@ -1,7 +1,7 @@
-package fsm
+package elevfsm
 
 import (
-	"Driver-go/elevio"
+	elevio "Module-go/localElevator/elev_driver"
 )
 
 type DirnBehaviourPair struct {
@@ -83,7 +83,7 @@ func requests_shouldStop(e Elevator) bool {
     }
 }
 
-func requests_calculateOrdersToBeCleared(e Elevator) []elevio.ButtonEvent {
+func requests_getOrdersExecuted(e Elevator) []elevio.ButtonEvent {
     if e.config.clearRequestVariant == CV_All {return []elevio.ButtonEvent{
                                                 {Floor: e.floor, Button: elevio.BT_HallDown},
                                                 {Floor: e.floor, Button: elevio.BT_HallUp},

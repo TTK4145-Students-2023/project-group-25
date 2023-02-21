@@ -1,21 +1,21 @@
 package main
 
 import (
-	"Driver-go/elevio"
-	"Driver-go/fsm"
+	elevio "Module-go/localElevator/elev_driver"
+	elevfsm "Module-go/localElevator/elev_fsm"
 	"time"
 )
 
 var (
-	floor_request     = make(chan [fsm.N_FLOORS][fsm.N_BUTTONS]bool)
-	drv_ordersExecuted = make(chan []elevio.ButtonEvent)
-	drv_buttons       = make(chan elevio.ButtonEvent)
-	drv_floors        = make(chan int)
-	drv_obstr         = make(chan bool)
+	floor_request          = make(chan [elevfsm.N_FLOORS][elevfsm.N_BUTTONS]bool)
+	handler_ordersExecuted = make(chan []elevio.ButtonEvent)
+	drv_buttons            = make(chan elevio.ButtonEvent)
+	drv_floors             = make(chan int)
+	drv_obstr              = make(chan bool)
 )
 
-func orderHandler(buttonPress chan elevio.ButtonEvent, orderClear chan []elevio.ButtonEvent, order chan [fsm.N_FLOORS][fsm.N_BUTTONS]bool) {
-	elevOrder := [fsm.N_FLOORS][fsm.N_BUTTONS]bool{}
+func orderHandler(buttonPress chan elevio.ButtonEvent, orderClear chan []elevio.ButtonEvent, order chan [elevfsm.N_FLOORS][elevfsm.N_BUTTONS]bool) {
+	elevOrder := [elevfsm.N_FLOORS][elevfsm.N_BUTTONS]bool{}
 	for {
 		select {
 		case buttonEvent := <-buttonPress:
@@ -24,7 +24,7 @@ func orderHandler(buttonPress chan elevio.ButtonEvent, orderClear chan []elevio.
 			order <- elevOrder
 
 		case clearEvent := <-orderClear:
-			for i := 0; i<len(clearEvent); i++{
+			for i := 0; i < len(clearEvent); i++ {
 				elevOrder[clearEvent[i].Floor][clearEvent[i].Button] = false
 				elevio.SetButtonLamp(clearEvent[i].Button, clearEvent[i].Floor, false)
 			}
@@ -34,15 +34,15 @@ func orderHandler(buttonPress chan elevio.ButtonEvent, orderClear chan []elevio.
 }
 
 func main() {
-	elevio.Init("localhost:15657", fsm.N_FLOORS)
+	elevio.Init("localhost:15657", elevfsm.N_FLOORS)
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(drv_buttons)
 	go elevio.PollObstructionSwitch(drv_obstr)
-	go orderHandler(drv_buttons, drv_ordersExecuted, floor_request)
+	go orderHandler(drv_buttons, handler_ordersExecuted, floor_request)
 
 	time.Sleep(time.Millisecond * 40)
 
-	go fsm.FSM(floor_request, drv_floors, drv_obstr, drv_ordersExecuted)
+	go elevfsm.FSM(floor_request, drv_floors, drv_obstr, handler_ordersExecuted)
 
 	for {
 		time.Sleep(time.Millisecond * 40)

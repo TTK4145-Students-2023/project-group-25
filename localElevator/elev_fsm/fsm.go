@@ -1,8 +1,8 @@
-package fsm
+package elevfsm
 
 import (
-	"Driver-go/elevio"
-	"Driver-go/timer"
+	elevio "Module-go/localElevator/elev_driver"
+	elevtimer "Module-go/localElevator/elev_timer"
 	"time"
 )
 
@@ -58,13 +58,13 @@ func FSM(
 	floor_requests <-chan [N_FLOORS][N_BUTTONS]bool,
 	drv_floors <-chan int,
 	drv_obstr <-chan bool,
-	drv_orderExecuted chan<- []elevio.ButtonEvent) {
+	handler_ordersExecuted chan<- []elevio.ButtonEvent) {
 
 	e := uninitializedElevator()
 	obstr := false
 	timeout := make(chan bool)
 
-	go timer.TimerMain(timeout)
+	go elevtimer.TimerMain(timeout)
 
 	select {
 	case e.floor = <-drv_floors:
@@ -85,50 +85,7 @@ func FSM(
 
 	for {
 		select {
-		case e.floor = <-drv_floors:
-			elevio.SetFloorIndicator(e.floor)
-			switch e.behaviour {
-			case EB_Idle:
-			case EB_DoorOpen:
-			case EB_Moving:
-				if requests_shouldStop(e) {
-					elevio.SetMotorDirection(elevio.MD_Stop)
-					elevio.SetDoorOpenLamp(true)
-					if !obstr { timer.TimerStart(e.config.doorOpenDuration_s) }
-					e.behaviour = EB_DoorOpen
-				}
-			}
 
-		case <-timeout:
-			switch e.behaviour {
-			case EB_Moving:
-			case EB_Idle:
-			case EB_DoorOpen:
-				ordersExecuted := requests_calculateOrdersToBeCleared(e)
-				e = requests_clearLocalRequest(e, ordersExecuted)
-				drv_orderExecuted <- ordersExecuted
-
-				dirnBehaviourPair := requests_chooseDirection(e)
-				e.dirn = dirnBehaviourPair.dirn
-				e.behaviour = dirnBehaviourPair.behaviour
-
-				switch e.behaviour {
-				case EB_DoorOpen:
-					timer.TimerStart(e.config.doorOpenDuration_s)
-
-				case EB_Moving:
-					fallthrough
-				case EB_Idle:
-					elevio.SetDoorOpenLamp(false)
-					elevio.SetMotorDirection(e.dirn)
-				}
-			}
-		case obstr = <-drv_obstr:
-			if obstr {
-				timer.TimerKill()
-			} else if !obstr && e.behaviour == EB_DoorOpen {
-				timer.TimerStart(e.config.doorOpenDuration_s)
-			}
 		case e.requests = <-floor_requests:
 			switch e.behaviour {
 			case EB_DoorOpen:
@@ -139,15 +96,61 @@ func FSM(
 				e.behaviour = dirnBehaviourPair.behaviour
 
 				switch e.behaviour {
+				case EB_Idle:
 				case EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					timer.TimerStart(e.config.doorOpenDuration_s)
+					elevtimer.TimerStart(e.config.doorOpenDuration_s)
 
 				case EB_Moving:
 					elevio.SetMotorDirection(e.dirn)
-
-				case EB_Idle:
 				}
+			}
+
+		case e.floor = <-drv_floors:
+			elevio.SetFloorIndicator(e.floor)
+			switch e.behaviour {
+			case EB_Idle:
+			case EB_DoorOpen:
+			case EB_Moving:
+				if requests_shouldStop(e) {
+					elevio.SetMotorDirection(elevio.MD_Stop)
+					elevio.SetDoorOpenLamp(true)
+					e.behaviour = EB_DoorOpen
+					if !obstr { elevtimer.TimerStart(e.config.doorOpenDuration_s) }
+				}
+			}
+		
+		case <-timeout:
+			switch e.behaviour {
+			case EB_Idle:
+			case EB_Moving:
+			case EB_DoorOpen:
+				ordersExecuted := requests_getOrdersExecuted(e)
+				e = requests_clearLocalRequest(e, ordersExecuted)
+				handler_ordersExecuted <- ordersExecuted
+
+				dirnBehaviourPair := requests_chooseDirection(e)
+				e.dirn = dirnBehaviourPair.dirn
+				e.behaviour = dirnBehaviourPair.behaviour
+
+				switch e.behaviour {
+				case EB_DoorOpen:
+					elevtimer.TimerStart(e.config.doorOpenDuration_s)
+				case EB_Moving:
+					fallthrough
+				case EB_Idle:
+					elevio.SetDoorOpenLamp(false)
+					elevio.SetMotorDirection(e.dirn)
+				}
+			}
+
+		case obstr = <-drv_obstr:
+			if obstr { elevtimer.TimerKill() }
+			switch e.behaviour {
+			case EB_Idle:
+			case EB_Moving:
+			case EB_DoorOpen:
+				if !obstr { elevtimer.TimerStart(e.config.doorOpenDuration_s) }
 			}
 		}
 	}
