@@ -66,8 +66,6 @@ func requests_chooseDirection(e Elevator) DirnBehaviourPair {
     }
 }
 
-
-
 func requests_shouldStop(e Elevator) bool {
     switch e.dirn {
     case elevio.MD_Down:
