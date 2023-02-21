@@ -96,11 +96,20 @@ func requests_calculateOrdersToBeCleared(e Elevator) []elevio.ButtonEvent {
         if e.requests[e.floor][elevio.BT_HallUp] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallUp})}
         if e.requests[e.floor][elevio.BT_Cab] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_Cab})}
     case elevio.MD_Up:
+        if e.requests[e.floor][elevio.BT_HallDown] || !requests_above(e) {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallDown})}
         if e.requests[e.floor][elevio.BT_HallUp] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallUp})}
         if e.requests[e.floor][elevio.BT_Cab] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_Cab})}
     case elevio.MD_Down:
+        if e.requests[e.floor][elevio.BT_HallUp] || !requests_below(e) {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallUp})}
         if e.requests[e.floor][elevio.BT_HallDown] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallDown})}
         if e.requests[e.floor][elevio.BT_Cab] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_Cab})}
     }
     return orders
+}
+
+func requests_clearLocalRequest(e Elevator, clearEvent []elevio.ButtonEvent) Elevator {
+    for i := 0; i<len(clearEvent); i++{
+        e.requests[clearEvent[i].Floor][clearEvent[i].Button] = false
+    }
+    return e
 }

@@ -13,9 +13,8 @@ func TimerMain(timeout chan<- bool) {
 
 	for {
 		s := <-startTimer
-		alarm := time.After(time.Second * s)
 		select {
-		case <-alarm:
+		case <-time.After(time.Second * s):
 			timeout <- true
 		case <-killTimer:
 		}
@@ -27,5 +26,8 @@ func TimerStart(seconds time.Duration) {
 }
 
 func TimerKill() {
-	killTimer <- true
+	select {
+	case killTimer <- true:
+	default:
+	}
 }

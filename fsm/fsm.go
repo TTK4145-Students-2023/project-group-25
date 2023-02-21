@@ -60,8 +60,6 @@ func FSM(
 	drv_obstr <-chan bool,
 	drv_orderExecuted chan<- []elevio.ButtonEvent) {
 
-	elevio.Init("localhost:15657", N_FLOORS)
-
 	e := uninitializedElevator()
 	obstr := false
 	timeout := make(chan bool)
@@ -95,7 +93,7 @@ func FSM(
 				if requests_shouldStop(e) {
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
-					timer.TimerStart(e.config.doorOpenDuration_s)
+					if !obstr { timer.TimerStart(e.config.doorOpenDuration_s) }
 					e.behaviour = EB_DoorOpen
 				}
 			case EB_DoorOpen:
@@ -103,14 +101,17 @@ func FSM(
 
 		case <-timeout:
 			switch e.behaviour {
-			case EB_Idle:
 			case EB_Moving:
+			case EB_Idle:
 			case EB_DoorOpen:
 				ordersExecuted := requests_calculateOrdersToBeCleared(e)
+				e = requests_clearLocalRequest(e, ordersExecuted)
 				drv_orderExecuted <- ordersExecuted
+
 				dirnBehaviourPair := requests_chooseDirection(e)
 				e.dirn = dirnBehaviourPair.dirn
 				e.behaviour = dirnBehaviourPair.behaviour
+
 				switch e.behaviour {
 				case EB_DoorOpen:
 					timer.TimerStart(e.config.doorOpenDuration_s)
@@ -141,7 +142,7 @@ func FSM(
 				case EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
 					timer.TimerStart(e.config.doorOpenDuration_s)
-					
+
 				case EB_Moving:
 					elevio.SetMotorDirection(e.dirn)
 
