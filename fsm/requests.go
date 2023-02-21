@@ -85,51 +85,24 @@ func requests_shouldStop(e Elevator) bool {
     }
 }
 
- func requests_shouldClearImmediately(e Elevator, btn_floor int, btn_type elevio.ButtonType) bool {
-    switch(e.config.clearRequestVariant){
-    case CV_All:
-        return e.floor == btn_floor
-    case CV_InDirn:
-        return e.floor == btn_floor && 
-                (e.dirn == elevio.MD_Up   && btn_type == elevio.BT_HallUp)    ||
-                (e.dirn == elevio.MD_Down && btn_type == elevio.BT_HallDown)  ||
-                (e.dirn == elevio.MD_Stop || btn_type == elevio.BT_Cab)
-    default:
-        return false
+func requests_calculateOrdersToBeCleared(e Elevator) []elevio.ButtonEvent {
+    if e.config.clearRequestVariant == CV_All {return []elevio.ButtonEvent{
+                                                {Floor: e.floor, Button: elevio.BT_HallDown},
+                                                {Floor: e.floor, Button: elevio.BT_HallUp},
+                                                {Floor: e.floor, Button: elevio.BT_Cab}}}
+
+    orders := []elevio.ButtonEvent{}
+    switch e.dirn{
+    case elevio.MD_Stop:
+        if e.requests[e.floor][elevio.BT_HallDown] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallDown})}
+        if e.requests[e.floor][elevio.BT_HallUp] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallUp})}
+        if e.requests[e.floor][elevio.BT_Cab] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_Cab})}
+    case elevio.MD_Up:
+        if e.requests[e.floor][elevio.BT_HallUp] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallUp})}
+        if e.requests[e.floor][elevio.BT_Cab] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_Cab})}
+    case elevio.MD_Down:
+        if e.requests[e.floor][elevio.BT_HallDown] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_HallDown})}
+        if e.requests[e.floor][elevio.BT_Cab] {orders = append(orders , elevio.ButtonEvent{Floor: e.floor, Button: elevio.BT_Cab})}
     }
+    return orders
 }
-
-func requests_clearAtCurrentFloor(e Elevator) Elevator {
-        
-    switch(e.config.clearRequestVariant){
-    case CV_All:
-        for btn := 0; btn < N_BUTTONS; btn++{
-            e.requests[e.floor][btn] = false
-        }
-        
-    case CV_InDirn:
-        e.requests[e.floor][elevio.BT_Cab] = false
-        switch(e.dirn){
-        case elevio.MD_Up:
-            if(!requests_above(e) && !e.requests[e.floor][elevio.BT_HallUp]){
-                e.requests[e.floor][elevio.BT_HallDown] = false
-            }
-            e.requests[e.floor][elevio.BT_HallUp] = false
-            
-        case elevio.MD_Down:
-            if(!requests_below(e) && !e.requests[e.floor][elevio.BT_HallDown]){
-                e.requests[e.floor][elevio.BT_HallUp] = false
-            }
-            e.requests[e.floor][elevio.BT_HallDown] = false
-            
-        case elevio.MD_Stop:
-        default:
-            e.requests[e.floor][elevio.BT_HallUp] = false
-            e.requests[e.floor][elevio.BT_HallDown] = false
-
-        }
-    default:
-    }
-    return e
-}
-

@@ -58,8 +58,8 @@ func FSM(
 	floor_requests <-chan [N_FLOORS][N_BUTTONS]bool,
 	drv_floors <-chan int,
 	drv_obstr <-chan bool,
-	drv_orderExecuted chan <- elevio.ButtonEvent) {
-	
+	drv_orderExecuted chan<- []elevio.ButtonEvent) {
+
 	elevio.Init("localhost:15657", N_FLOORS)
 
 	e := uninitializedElevator()
@@ -68,7 +68,7 @@ func FSM(
 
 	go timer.TimerMain(timeout)
 
-	select{
+	select {
 	case e.floor = <-drv_floors:
 	default:
 	}
@@ -95,7 +95,6 @@ func FSM(
 				if requests_shouldStop(e) {
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
-					e = requests_clearAtCurrentFloor(e)
 					timer.TimerStart(e.config.doorOpenDuration_s)
 					e.behaviour = EB_DoorOpen
 				}
@@ -107,23 +106,20 @@ func FSM(
 			case EB_Idle:
 			case EB_Moving:
 			case EB_DoorOpen:
+				ordersExecuted := requests_calculateOrdersToBeCleared(e)
+				drv_orderExecuted <- ordersExecuted
 				dirnBehaviourPair := requests_chooseDirection(e)
 				e.dirn = dirnBehaviourPair.dirn
 				e.behaviour = dirnBehaviourPair.behaviour
 				switch e.behaviour {
 				case EB_DoorOpen:
 					timer.TimerStart(e.config.doorOpenDuration_s)
-					e = requests_clearAtCurrentFloor(e)
-					drv_orderExecuted <- elevio.ButtonEvent{Floor : e.floor, Button: elevio.BT_Cab}
 
 				case EB_Moving:
-					elevio.SetDoorOpenLamp(false)
-					elevio.SetMotorDirection(e.dirn)
-					drv_orderExecuted <- elevio.ButtonEvent{Floor : e.floor, Button: elevio.BT_Cab}
+					fallthrough
 				case EB_Idle:
 					elevio.SetDoorOpenLamp(false)
 					elevio.SetMotorDirection(e.dirn)
-					drv_orderExecuted <- elevio.ButtonEvent{Floor : e.floor, Button: elevio.BT_Cab}
 				}
 			}
 		case obstr = <-drv_obstr:
@@ -133,8 +129,25 @@ func FSM(
 				timer.TimerStart(e.config.doorOpenDuration_s)
 			}
 		case e.requests = <-floor_requests:
+			switch e.behaviour {
+			case EB_DoorOpen:
+			case EB_Moving:
+			case EB_Idle:
+				dirnBehaviourPair := requests_chooseDirection(e)
+				e.dirn = dirnBehaviourPair.dirn
+				e.behaviour = dirnBehaviourPair.behaviour
+
+				switch e.behaviour {
+				case EB_DoorOpen:
+					elevio.SetDoorOpenLamp(true)
+					timer.TimerStart(e.config.doorOpenDuration_s)
+					
+				case EB_Moving:
+					elevio.SetMotorDirection(e.dirn)
+
+				case EB_Idle:
+				}
+			}
 		}
-
 	}
-
 }
