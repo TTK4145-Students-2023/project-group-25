@@ -89,6 +89,7 @@ func FSM(
 			elevio.SetFloorIndicator(e.floor)
 			switch e.behaviour {
 			case EB_Idle:
+			case EB_DoorOpen:
 			case EB_Moving:
 				if requests_shouldStop(e) {
 					elevio.SetMotorDirection(elevio.MD_Stop)
@@ -96,7 +97,6 @@ func FSM(
 					if !obstr { timer.TimerStart(e.config.doorOpenDuration_s) }
 					e.behaviour = EB_DoorOpen
 				}
-			case EB_DoorOpen:
 			}
 
 		case <-timeout:
