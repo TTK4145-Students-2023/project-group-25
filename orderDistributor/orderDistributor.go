@@ -18,8 +18,8 @@ type ElevData struct {
 }
 
 const (
-	STATE_updateLocalData        DistributorState = 0
-	STATE_distributeLocalChanges DistributorState = 1
+	STATE_updateData         DistributorState = 0
+	STATE_distributeBTNPress DistributorState = 1
 )
 
 // input channels
@@ -46,51 +46,64 @@ func dataDistributor(
 
 ) {
 
+	distributor_state := STATE_updateData
+	worldView := []int
 	for {
-		distributor_state := STATE_updateLocalData
 		select {
-		case allElevData := <-allElevData_fromP2P:
+		case DataFromP2P := <-allElevData_fromP2P:
+
+			worldView = update_worldView(DataFromP2P, localElevData)
+
 			switch distributor_state {
-			case STATE_updateLocalData:
+			case STATE_updateData:
 
-				//update local storage of data and send json to assigner
+				allElevData_toAssigner <- worldView
+				allElevData_toP2P <- worldView
 
-				//latestValid_ordermatrix, _ = validateData(allElevData)
-				//allElevData_toAssigner <- latestValid_ordermatrix.json()
+			case STATE_distributeBTNPress:
 
-				UNUSED(allElevData)
+				if orderDistributed(DataFromP2P, localElevData) == true {
+					allElevData_toAssigner <- worldView
+					allElevData_toP2P <- worldView
+					//lights on
+					distributor_state = STATE_updateData
 
-			case STATE_distributeLocalChanges:
-				// check if input==output
-				// if true: switch state and turn on/off light
-				//if false: send change again
-
-				//_, succesfully_distributed := validateData(allElevData)
+				} else {
+					allElevData_toP2P <- worldView
+				}
 
 			}
 
 		case executedOrder := <-orderExecuted:
+
+			deleteOrder(executedOrder)
+
 			switch distributor_state {
-			case STATE_updateLocalData:
-				//add order change to elevdata and send to p2p
-				//switch state
-				UNUSED(executedOrder)
+			case STATE_updateData:
+				allElevData_toP2P <- worldView
 
-			case STATE_distributeLocalChanges:
-				// dont accept orderchanges when distrubiting
+				//allElevData_toAssigner <- worldView   //not neccesary?
+				//lights out??
 
+			case STATE_distributeBTNPress:
+				allElevData_toP2P <- worldView
+
+				//allElevData_toAssigner <- worldView   //not neccesary?
+				//lights out??
 			}
 
 		case pressedBtn := <-btnPress:
+
+			addOrder(pressedBtn)
+
 			switch distributor_state {
-			case STATE_updateLocalData:
-				//add order change to elevdata and send to p2p
-				//switch state
+			case STATE_updateData:
 
-				UNUSED(pressedBtn)
+				allElevData_toP2P <- worldView
+				distributor_state = STATE_distributeBTNPress
 
-			case STATE_distributeLocalChanges:
-				// dont accept orderchanges when distrubiting
+			case STATE_distributeBTNPress:
+				// dont accept New buttonpresses when distrubiting
 
 			}
 		}
@@ -99,3 +112,11 @@ func dataDistributor(
 
 // UNUSED allows unused variables to be included in Go programs
 func UNUSED(x ...interface{}) {}
+
+func update_worldView(x ...interface{}) int
+
+func orderDistributed(x ...interface{}) bool
+
+func deleteOrder(x ...interface{})
+
+func addOrder(x ...interface{})
