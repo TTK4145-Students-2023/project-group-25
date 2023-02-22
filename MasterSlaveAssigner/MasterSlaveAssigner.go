@@ -2,10 +2,19 @@ package MasterSlaveAssigner
 
 import (
 	"net"
+	"strconv"
 	"strings"
+	// "Network-go/network/peers"
 )
 
+// type of message on P2P network
+type msgP2P struct {
+	//elevData - some format
+	IPAddrP2P string `json:"IPAddr"`
+}
+
 // Get preferred outbound ip of this machine
+// work as long as you have internet connection
 var localIP string
 
 func LocalIP() (string, error) {
@@ -20,32 +29,42 @@ func LocalIP() (string, error) {
 	return localIP, nil
 }
 
-// input channel
-var (
-	IPAddr_P2P = make(chan string)
-)
-
-// output channel (true = master, false = slave)
-var (
-	MasterSlave = make(chan bool)
-)
-
-// assign IP address from P2P network to a string
-type IPAddr_NTW struct {
-	IPAddr_NTW string `json:"IPAddr"`
+// returning -1 if ip1 > ip2, 0 if ip1 == ip2 and 1 if ip1 < ip2
+// this function only checks for which last byte is the biggest (can be developed)
+func CompIP(localIP, P2P_IP string) int {
+	localIPArr := strings.Split(localIP, ".")
+	P2P_IPArr := strings.Split(P2P_IP, ".")
+	ip1LastByte, _ := strconv.Atoi(localIPArr[len(localIPArr)-1])
+	ip2LastByte, _ := strconv.Atoi(P2P_IPArr[len(P2P_IPArr)-1])
+	i := 0
+	if ip1LastByte > ip2LastByte {
+		i = -1
+	} else if ip1LastByte == ip2LastByte {
+		i = 0
+	} else if ip1LastByte < ip2LastByte {
+		i = 1
+	}
+	return i
 }
 
-// func StringtoInt(IPAddr_string string) int {
-// 	IPint, err := strconv.Atoi(IPAddr_string)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	return IPint
-// }
+var (
+	IPAddrP2PRx = make(chan string) // input channel to recieve IP adress from P2P NTW
+	MasterSlave = make(chan bool)   // output channel to send Master or Slave role to order assigner
+)
 
-// func MasterSlaveAssigner(IPAddr_P2P <-chan IPAddr_NTW) {
-// 	var localIPaddr string = getLocalIP().String()
-// 	var localIPaddrInt int64 = StringtoInt(localIPAddr)
-
-// 	fmt.Println(localIPaddrInt)
-// }
+// assign master or slave to prder assigner
+// dont know if this works yet...
+func MasterSlaveAssigner() bool {
+	localIP, _ := LocalIP() // dont know where to assign this...
+	for {
+		select {
+		case P2P_IP := <-IPAddrP2PRx:
+			i := CompIP(localIP, P2P_IP)
+			if i == -1 {
+				MasterSlave <- true
+			} else {
+				MasterSlave <- false
+			}
+		}
+	}
+}
