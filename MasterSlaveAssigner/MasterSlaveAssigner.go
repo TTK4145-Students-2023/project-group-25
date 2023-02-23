@@ -1,10 +1,11 @@
 package MasterSlaveAssigner
 
 import (
+	"Driver-go/peers"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
-	// "Network-go/network/peers"
 )
 
 // type of message on P2P network
@@ -29,28 +30,52 @@ func LocalIP() (string, error) {
 	return localIP, nil
 }
 
-// returning -1 if ip1 > ip2, 0 if ip1 == ip2 and 1 if ip1 < ip2
+var (
+	IPAddrP2PRx = make(chan peers.PeerUpdate) // input channel to recieve IP adresses from P2P NTW
+	MasterSlave = make(chan bool)             // output channel to send Master or Slave role to order assigner
+)
+
+func Max(array []int) int {
+	var max int = array[0]
+	for _, value := range array {
+		if max < value {
+			max = value
+		}
+	}
+	return max
+}
+
 // this function only checks for which last byte is the biggest (can be developed)
-func CompIP(localIP, P2P_IP string) int {
+func CompIP(localIP string, P2P_IP []string) int {
+
+	if len(P2P_IP) == 0 { // if array is empty i = 1 --> only node on NTW == master
+		return 1
+	}
+
 	localIPArr := strings.Split(localIP, ".")
-	P2P_IPArr := strings.Split(P2P_IP, ".")
-	ip1LastByte, _ := strconv.Atoi(localIPArr[len(localIPArr)-1])
-	ip2LastByte, _ := strconv.Atoi(P2P_IPArr[len(P2P_IPArr)-1])
+	ipLocalLastByteInt, _ := strconv.Atoi(localIPArr[len(localIPArr)-1])
+
+	var ipP2PintArray []int
+	for i := 0; i < len(P2P_IP); i++ {
+		ipLastByteString := strings.Split(P2P_IP[i], ".")
+		ipLastByteInt, _ := strconv.Atoi(ipLastByteString[len(ipLastByteString)-1])
+		ipP2PintArray = append(ipP2PintArray, ipLastByteInt)
+	}
+	for i := 0; i < len(ipP2PintArray); i++ {
+		fmt.Println(ipP2PintArray[i])
+	}
+
+	maxIP := Max(ipP2PintArray)
+
+	// assuming that local IP is not in the peer struct coming from the P2P_IP array on the NTW
 	i := 0
-	if ip1LastByte > ip2LastByte {
-		i = -1
-	} else if ip1LastByte == ip2LastByte {
-		i = 0
-	} else if ip1LastByte < ip2LastByte {
+	if maxIP <= ipLocalLastByteInt {
 		i = 1
+	} else {
+		i = 0
 	}
 	return i
 }
-
-var (
-	IPAddrP2PRx = make(chan string) // input channel to recieve IP adress from P2P NTW
-	MasterSlave = make(chan bool)   // output channel to send Master or Slave role to order assigner
-)
 
 // assign master or slave to prder assigner
 // dont know if this works yet...
@@ -59,11 +84,13 @@ func MasterSlaveAssigner() bool {
 	for {
 		select {
 		case P2P_IP := <-IPAddrP2PRx:
-			i := CompIP(localIP, P2P_IP)
-			if i == -1 {
+			i := CompIP(localIP, P2P_IP.Peers)
+			if i == 1 {
 				MasterSlave <- true
+				fmt.Println("Master")
 			} else {
 				MasterSlave <- false
+				fmt.Println("Slave")
 			}
 		}
 	}
