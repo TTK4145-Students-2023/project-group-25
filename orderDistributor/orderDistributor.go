@@ -2,9 +2,7 @@ package orderdistributor
 
 import (
 	"Driver-go/elevio"
-	
 )
-
 
 // Datatypes
 type ElevState struct {
@@ -24,6 +22,18 @@ type StateOfWorldView struct {
 	RequestStateMatrix map[string]SingleNode_RequestStates `json:"requestStateMatrix"`
 }
 
+type SingleNode_RequestStates struct {
+	Requests [][2]RequestState `json:"requests"`
+}
+
+// States
+type RequestState int
+
+const (
+	Req_STATE_none      RequestState = 0
+	Req_STATE_new       RequestState = 1
+	Req_STATE_confirmed RequestState = 2
+)
 
 type DistributorState int
 
@@ -36,7 +46,7 @@ const (
 var (
 	allElevData_fromP2P = make(chan StateOfWorldView)
 	btnPress            = make(chan elevio.ButtonEvent)
-	orderExecuted       = make(chan bool)
+	orderExecuted       = make(chan [][2]int)
 	localElevData       = make(chan ElevState)
 )
 
@@ -50,7 +60,7 @@ var (
 func dataDistributor(
 	allElevData_fromP2P <-chan StateOfWorldView,
 	btnPress <-chan elevio.ButtonEvent,
-	orderExecuted <-chan bool,
+	orderExecuted <-chan [][2]int,
 	localElevData <-chan ElevState, //not used as fsm trigger
 	allElevData_toP2P chan<- StateOfWorldView,
 	allElevData_toAssigner chan<- WorldView,
@@ -128,9 +138,9 @@ func dataDistributor(
 // UNUSED allows unused variables to be included in Go programs
 func UNUSED(x ...interface{}) {}
 
-func update_worldView(x ...interface{}) StateOfWorldView
+func update_worldView(P2P_data StateOfWorldView, local_data WorldView) StateOfWorldView
 
-func orderDistributed(x ...interface{}) bool
+func orderDistributed(P2P_data StateOfWorldView, local_data WorldView) bool
 
 func deleteOrder(x ...interface{}) StateOfWorldView
 
