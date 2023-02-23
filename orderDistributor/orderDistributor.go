@@ -18,8 +18,12 @@ type WorldView struct {
 }
 
 type StateOfWorldView struct {
-	CurrentWorldView   WorldView         `json:"currentWorldView"`
-	RequestStateMatrix [][2]RequestState `json:"requestStateMatrix"`
+	CurrentWorldView   WorldView                           `json:"currentWorldView"`
+	RequestStateMatrix map[string]SingleNode_RequestStates `json:"requestStateMatrix"`
+}
+
+type SingleNode_RequestStates struct {
+	Requests [][2]RequestState `json:"requests"`
 }
 
 // States
