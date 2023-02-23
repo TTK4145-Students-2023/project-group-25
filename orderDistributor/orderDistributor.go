@@ -71,7 +71,7 @@ func dataDistributor(
 
 	current_stateOfWorldView := StateOfWorldView{
 		CurrentWorldView:   WorldView{},
-		RequestStateMatrix: [][2]RequestState{},
+		RequestStateMatrix: map[string]SingleNode_RequestStates{},
 	}
 
 	for {
