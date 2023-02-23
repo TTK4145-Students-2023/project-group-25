@@ -2,7 +2,9 @@ package orderdistributor
 
 import (
 	"Driver-go/elevio"
+	
 )
+
 
 // Datatypes
 type ElevState struct {
@@ -22,18 +24,6 @@ type StateOfWorldView struct {
 	RequestStateMatrix map[string]SingleNode_RequestStates `json:"requestStateMatrix"`
 }
 
-type SingleNode_RequestStates struct {
-	Requests [][2]RequestState `json:"requests"`
-}
-
-// States
-type RequestState int
-
-const (
-	Req_STATE_none      RequestState = 0
-	Req_STATE_new       RequestState = 1
-	Req_STATE_confirmed RequestState = 2
-)
 
 type DistributorState int
 
