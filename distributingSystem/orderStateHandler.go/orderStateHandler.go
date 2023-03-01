@@ -2,9 +2,11 @@ package orderStateHandler
 
 import (
 	"Driver-go/elevio"
+
+	"golang.org/x/text/cases"
 )
 
-var localIP string = "Local IP adress"
+var localID string = "Local ID"
 
 // Datatypes
 type requestState int
@@ -52,21 +54,66 @@ func orderStateHandler(
 	Local_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
 	Local_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
 
-	//init local hallOrderArray
-	Local_HallOrderArray := [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}}
-	UNUSED(Local_HallOrderArray)
-
+	
 	for {
 		select {
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
-			UNUSED(matrix_fromP2P)
+
+			// List of node IDs we are connected to
+			nodeIDs := []string{"ID1", "ID2", "ID3"}
+
+			// Iterate through the list of node IDs
+			for _, nodeID := range nodeIDs {
+				// Skip the local node
+				if nodeID == localID {
+					continue
+				}
+
+				// Compare the requestStates for the other nodes with the Local requestStates
+				for floor, _ := range matrix_fromP2P[nodeID] {
+
+					//cyclic change of states
+					for btn_UpDown, other_state := range matrix_fromP2P[nodeID][floor]{
+
+						local_state := Local_ReqStatMatrix[localID][floor][btn_UpDown]
+
+						switch(other_state){
+						case STATE_none:
+							if local_state == STATE_confirmed{
+								Local_ReqStatMatrix[localID][floor][btn_UpDown] = STATE_none
+							}
+							
+						case STATE_new:
+							if local_state == STATE_none{
+								Local_ReqStatMatrix[localID][floor][btn_UpDown] = STATE_new
+							}
+
+													
+						case STATE_confirmed:
+							if local_state == STATE_new{
+								Local_ReqStatMatrix[localID][floor][btn_UpDown] = STATE_confirmed
+							}
+						}				
+					}
+
+			//Check if Order can be confirmed 
+			// Iterate through the list of node IDs
+			for _, nodeID := range nodeIDs {
+				for floor, _ := range matrix_fromP2P[nodeID] {
+					for btn_UpDown, other_state := range matrix_fromP2P[nodeID][floor]{
+
+
+        	}
+    }
+
+    // Send the updated RequestStateMatrix to other nodes
+    ReqStateMatrix_toP2P <- Local_ReqStatMatrix
 
 		case BtnPress := <-HallBtnPress:
-			UNUSED(BtnPress)
+			
 
 		case executedArray := <-orderExecuted:
-			UNUSED(executedArray)
-
+			
 		}
 	}
 
