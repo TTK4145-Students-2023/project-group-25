@@ -1,5 +1,5 @@
-module Driver-go
+module Module-go
 
 go 1.16
 
-replace Driver-go => ./
+replace Module-go => ../
