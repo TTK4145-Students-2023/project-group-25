@@ -4,83 +4,72 @@ import (
 	"Driver-go/elevio"
 )
 
-//
-localIP := "Local IP adress" 
+var localIP string = "Local IP adress"
 
-
-//Datatypes
+// Datatypes
 type requestState int
 
 type singleNode_requestStates [][2]requestState
 
-type requestStateMatrix map[string]singleNode_requestStates
+type RequestStateMatrix map[string]singleNode_requestStates
 
-type RequestStateMatrix_with_ID struct{
-	IpAdress 		string 				`json:"ipAdress"`
-	RequestMatrix 	requestStateMatrix  `json:"requestMatrix"`
+type RequestStateMatrix_with_ID struct {
+	IpAdress      string             `json:"ipAdress"`
+	RequestMatrix RequestStateMatrix `json:"requestMatrix"`
 }
 
-
-// States for hall requests 
+// States for hall requests
 const (
-	STATE_new       	requestState = 0
-	STATE_confirmed 	requestState = 1
-	STATE_none 			requestState = 2
+	STATE_new       requestState = 0
+	STATE_confirmed requestState = 1
+	STATE_none      requestState = 2
 )
-
-
 
 // input channels
 var (
-	ReqStateMatrix_fromP2P 	= make(chan RequestStateMatrix_with_ID)
-	HallBtnPress            = make(chan elevio.ButtonEvent)
-	orderExecuted       	= make(chan [][2]int)
+	ReqStateMatrix_fromP2P = make(chan RequestStateMatrix_with_ID)
+	HallBtnPress           = make(chan elevio.ButtonEvent)
+	orderExecuted          = make(chan [][2]int)
 )
 
 // output channels
 var (
-	HallOrderArray     		= make(chan [][2]bool)
-	ReqStateMatrix_toP2P 	= make(chan requestStateMatrix)
+	HallOrderArray       = make(chan [][2]bool)
+	ReqStateMatrix_toP2P = make(chan RequestStateMatrix)
 )
 
-
-
 func orderStateHandler(
-	ReqStateMatrix_fromP2P <-chan requestStateMatrix,
+	ReqStateMatrix_fromP2P <-chan RequestStateMatrix,
 	HallBtnPress <-chan elevio.ButtonEvent,
 	orderExecuted <-chan [][2]int,
-	HallOrderArray chan<- StateOfWorldView,
-	ReqStateMatrix_toP2P chan<- WorldView,
+	HallOrderArray chan<- [][2]bool,
+	ReqStateMatrix_toP2P chan<- RequestStateMatrix,
 
 ) {
 	//init local RequestStateMatrix
-	Local_ReqStatMatrix := { 
-	"ID1": singleNode_requestStates{{STATE_none, STATE_none},{STATE_none, STATE_none},{STATE_none, STATE_none},{STATE_none, STATE_none}}, 	 
-	"ID2": singleNode_requestStates{{STATE_none, STATE_none},{STATE_none, STATE_none},{STATE_none, STATE_none},{STATE_none, STATE_none}},
-	"ID3": singleNode_requestStates{{STATE_none, STATE_none},{STATE_none, STATE_none},{STATE_none, STATE_none},{STATE_none, STATE_none}},
-	}
+	Local_ReqStatMatrix := make(RequestStateMatrix)
+	Local_ReqStatMatrix["ID1"] = singleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
+	Local_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
+	Local_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
 
 	//init local hallOrderArray
 	Local_HallOrderArray := [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}}
+	UNUSED(Local_HallOrderArray)
 
+	for {
+		select {
+		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
+			UNUSED(matrix_fromP2P)
 
-	for{
-		select{
-		case matrix_fromP2P := <-chan ReqStateMatrix_fromP2P:
+		case BtnPress := <-HallBtnPress:
+			UNUSED(BtnPress)
 
-		case BtnPress := <-chan elevio.HallBtnPress:
-
-		case executedArray <-chan orderExecuted:
+		case executedArray := <-orderExecuted:
+			UNUSED(executedArray)
 
 		}
 	}
 
-
-
 }
 
-
-
-
-
-
+func UNUSED(x ...interface{}) {}
