@@ -52,8 +52,6 @@ const (
 	EB_DoorOpen ElevatorBehaviour = 2
 )
 
-func elevRequestMerger(floor_hallRequests <-chan [N_FLOORS][2]bool, floor_cabRequests <-chan [N_FLOORS]bool)
-
 func getElevatorData(e Elevator) ElevatorData {
 	return ElevatorData{behaviour: e.behaviour, floor: e.floor, dirn: e.dirn, cabRequests: e.cabRequests}
 }

@@ -33,13 +33,13 @@ func orderHandler(buttonPress chan elevio.ButtonEvent, orderClear chan []elevio.
 		case clearEvent := <-orderClear:
 			for i := 0; i < len(clearEvent); i++ {
 				if clearEvent[i].Button != elevio.BT_Cab {
-				} else {
 					elev_hallOrder[clearEvent[i].Floor][clearEvent[i].Button] = false
 					elevio.SetButtonLamp(clearEvent[i].Button, clearEvent[i].Floor, false)
 				}
 			}
 			hallOrder <- elev_hallOrder
 		}
+
 	}
 }
 
