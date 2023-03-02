@@ -2,8 +2,6 @@ package orderStateHandler
 
 import (
 	"Driver-go/elevio"
-
-	"golang.org/x/text/cases"
 )
 
 var localID string = "Local ID"
@@ -31,7 +29,7 @@ const (
 var (
 	ReqStateMatrix_fromP2P = make(chan RequestStateMatrix_with_ID)
 	HallBtnPress           = make(chan elevio.ButtonEvent)
-	orderExecuted          = make(chan [][2]int)
+	orderExecuted          = make(chan []elevio.ButtonEvent)
 )
 
 // output channels
@@ -43,7 +41,7 @@ var (
 func orderStateHandler(
 	ReqStateMatrix_fromP2P <-chan RequestStateMatrix,
 	HallBtnPress <-chan elevio.ButtonEvent,
-	orderExecuted <-chan [][2]int,
+	orderExecuted <-chan []elevio.ButtonEvent,
 	HallOrderArray chan<- [][2]bool,
 	ReqStateMatrix_toP2P chan<- RequestStateMatrix,
 
@@ -54,7 +52,6 @@ func orderStateHandler(
 	Local_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
 	Local_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
 
-	
 	for {
 		select {
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
@@ -68,55 +65,89 @@ func orderStateHandler(
 				if nodeID == localID {
 					continue
 				}
-
-				// Compare the requestStates for the other nodes with the Local requestStates
-				for floor, _ := range matrix_fromP2P[nodeID] {
-
-					//cyclic change of states
-					for btn_UpDown, other_state := range matrix_fromP2P[nodeID][floor]{
+				// Compare the requestStates from the other nodes with the Local requestStates
+				for floor := range matrix_fromP2P[nodeID] {
+					for btn_UpDown, other_state := range matrix_fromP2P[nodeID][floor] {
 
 						local_state := Local_ReqStatMatrix[localID][floor][btn_UpDown]
 
-						switch(other_state){
+						//cyclic change of states
+						switch other_state {
 						case STATE_none:
-							if local_state == STATE_confirmed{
+							if local_state == STATE_confirmed {
 								Local_ReqStatMatrix[localID][floor][btn_UpDown] = STATE_none
 							}
-							
 						case STATE_new:
-							if local_state == STATE_none{
+							if local_state == STATE_none {
 								Local_ReqStatMatrix[localID][floor][btn_UpDown] = STATE_new
 							}
-
-													
 						case STATE_confirmed:
-							if local_state == STATE_new{
+							if local_state == STATE_new {
 								Local_ReqStatMatrix[localID][floor][btn_UpDown] = STATE_confirmed
 							}
-						}				
+						}
+					}
+				}
+			}
+
+			//Check if Order can be confirmed
+			// If all orders across IDs is State_new, order is confirmed
+			for floor := range Local_ReqStatMatrix[localID] {
+				for btn_UpDown := range Local_ReqStatMatrix[localID][floor] {
+
+					if Local_ReqStatMatrix[localID][floor][btn_UpDown] != STATE_new {
+						break
 					}
 
-			//Check if Order can be confirmed 
-			// Iterate through the list of node IDs
-			for _, nodeID := range nodeIDs {
-				for floor, _ := range matrix_fromP2P[nodeID] {
-					for btn_UpDown, other_state := range matrix_fromP2P[nodeID][floor]{
+					NewOrder_OnAll_IDs := true
+					for _, nodeID := range nodeIDs {
+						if Local_ReqStatMatrix[nodeID][floor][btn_UpDown] != STATE_new {
+							NewOrder_OnAll_IDs = false
+							break
+						}
+					}
 
+					if NewOrder_OnAll_IDs {
+						Local_ReqStatMatrix[localID][floor][btn_UpDown] = STATE_confirmed
+						//sett light
+					}
+				}
+			}
 
-        	}
-    }
-
-    // Send the updated RequestStateMatrix to other nodes
-    ReqStateMatrix_toP2P <- Local_ReqStatMatrix
+			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
+			HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localID)
 
 		case BtnPress := <-HallBtnPress:
-			
+			Local_ReqStatMatrix[localID][BtnPress.Floor][BtnPress.Button] = STATE_new
 
 		case executedArray := <-orderExecuted:
-			
+			for _, btn := range executedArray {
+				if btn.Button == elevio.BT_Cab {
+					continue
+				}
+
+				local_State := Local_ReqStatMatrix[localID][btn.Floor][btn.Button]
+				if local_State == STATE_confirmed {
+					Local_ReqStatMatrix[localID][btn.Floor][btn.Button] = STATE_none
+					//turn off light
+				}
+
+			}
+
 		}
 	}
-
 }
 
-func UNUSED(x ...interface{}) {}
+func ConfirmedOrdersToHallOrder(requests RequestStateMatrix, localID string) [][2]bool {
+
+	Local_HallOrderArray := [][2]bool{{false, false}, {false, false}, {false, false}, {false, true}}
+
+	for floor := range requests[localID] {
+		for btn_UpDown := range requests[localID][floor] {
+			if requests[localID][floor][btn_UpDown] == STATE_confirmed {
+				Local_HallOrderArray[floor][btn_UpDown] = true
+			}
+		}
+	}
+	return Local_HallOrderArray
+}
