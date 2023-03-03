@@ -4,7 +4,7 @@ import (
 	"Driver-go/elevio"
 )
 
-var localID string = "Local ID"
+var localID string = "ID1"
 
 // Datatypes
 type requestState int
