@@ -25,12 +25,15 @@ func TestOrderStateHandler(t *testing.T) {
 			ReqStateMatrix_toP2P,
 		)
 
+		//setting timeout to ensure completion of test
+		//timeout := time.After(1 * time.Second)
+
 		//Possible inputs
 
-		Hallorder := elevio.ButtonEvent{
-			Floor:  2,
-			Button: elevio.BT_HallUp,
-		}
+		// Hallorder := elevio.ButtonEvent{
+		// 	Floor:  2,
+		// 	Button: elevio.BT_HallUp,
+		// }
 
 		input_ReqStatMatrix := make(RequestStateMatrix)
 		input_ReqStatMatrix["ID1"] = singleNode_requestStates{{STATE_none, STATE_none},
@@ -48,27 +51,30 @@ func TestOrderStateHandler(t *testing.T) {
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
 
-		exec_btn_1 := elevio.ButtonEvent{
-			Floor:  2,
-			Button: elevio.BT_HallUp,
-		}
+		// exec_btn_1 := elevio.ButtonEvent{
+		// 	Floor:  2,
+		// 	Button: elevio.BT_HallUp,
+		// }
 
-		exec_btn_2 := elevio.ButtonEvent{
-			Floor:  2,
-			Button: elevio.BT_HallUp,
-		}
+		// exec_btn_2 := elevio.ButtonEvent{
+		// 	Floor:  2,
+		// 	Button: elevio.BT_HallUp,
+		// }
 
-		executedOrders := []elevio.ButtonEvent{exec_btn_1, exec_btn_2}
+		// executedOrders := []elevio.ButtonEvent{exec_btn_1, exec_btn_2}
 
 		// Send inputs on channels
-		HallBtnPress <- Hallorder
+		// HallBtnPress <- Hallorder
 
 		ReqStateMatrix_fromP2P <- input_ReqStatMatrix
 
-		orderExecuted <- executedOrders
+		// orderExecuted <- executedOrders
 
-		if !reflect.DeepEqual(1, 1) {
-			t.Errorf("Expected %v but got %v", 1, 1)
+		output_mat := <-ReqStateMatrix_toP2P
+		output_arr := <-HallOrderArray
+
+		if !reflect.DeepEqual(1, 0) {
+			t.Errorf("mat: %v , arr: %v", output_arr, output_mat)
 		}
 	})
 

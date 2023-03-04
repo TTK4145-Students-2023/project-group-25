@@ -96,7 +96,7 @@ func orderStateHandler(
 				for btn_UpDown := range Local_ReqStatMatrix[localID][floor] {
 
 					if Local_ReqStatMatrix[localID][floor][btn_UpDown] != STATE_new {
-						break
+						continue
 					}
 
 					NewOrder_OnAll_IDs := true
@@ -140,7 +140,7 @@ func orderStateHandler(
 
 func ConfirmedOrdersToHallOrder(requests RequestStateMatrix, localID string) [][2]bool {
 
-	Local_HallOrderArray := [][2]bool{{false, false}, {false, false}, {false, false}, {false, true}}
+	Local_HallOrderArray := [][2]bool{{false, false}, {false, false}, {false, false}, {false, false}}
 
 	for floor := range requests[localID] {
 		for btn_UpDown := range requests[localID][floor] {
