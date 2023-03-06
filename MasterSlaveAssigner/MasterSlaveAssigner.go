@@ -45,7 +45,7 @@ func Max(array []int) int {
 	return max
 }
 
-// this function only checks for which last byte is the biggest (can be developed)
+// this function only checks which last byte is the biggest (can be developed)
 func CompIP(localIP string, P2P_IP []string) int {
 
 	if len(P2P_IP) == 0 { // if array is empty i = 1 --> only node on NTW == master
@@ -67,7 +67,6 @@ func CompIP(localIP string, P2P_IP []string) int {
 
 	maxIP := Max(ipP2PintArray)
 
-	// assuming that local IP is not in the peer struct coming from the P2P_IP array on the NTW
 	i := 0
 	if maxIP <= ipLocalLastByteInt {
 		i = 1
@@ -77,10 +76,9 @@ func CompIP(localIP string, P2P_IP []string) int {
 	return i
 }
 
-// assign master or slave to prder assigner
-// dont know if this works yet...
+// assign master or slave to order assigner
 func MasterSlaveAssigner() bool {
-	localIP, _ := LocalIP() // dont know where to assign this...
+	localIP, _ := LocalIP()
 	for {
 		select {
 		case P2P_IP := <-IPAddrP2PRx:
