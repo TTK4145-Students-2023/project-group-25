@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	P2P.TestP2Pntw()
+	P2P.TestP2P()
 }
