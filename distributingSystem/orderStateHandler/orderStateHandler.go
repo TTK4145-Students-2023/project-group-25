@@ -20,9 +20,9 @@ type RequestStateMatrix_with_ID struct {
 
 // States for hall requests
 const (
-	STATE_new       requestState = 0
-	STATE_confirmed requestState = 1
-	STATE_none      requestState = 2
+	STATE_none      requestState = 0
+	STATE_new       requestState = 1
+	STATE_confirmed requestState = 2
 )
 
 // input channels
@@ -109,7 +109,7 @@ func orderStateHandler(
 
 					if NewOrder_OnAll_IDs {
 						Local_ReqStatMatrix[localID][floor][btn_UpDown] = STATE_confirmed
-						//sett light
+						//elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true) //turn on light?
 					}
 				}
 			}
@@ -129,7 +129,7 @@ func orderStateHandler(
 				local_State := Local_ReqStatMatrix[localID][btn.Floor][btn.Button]
 				if local_State == STATE_confirmed {
 					Local_ReqStatMatrix[localID][btn.Floor][btn.Button] = STATE_none
-					//turn off light
+					//elevio.SetButtonLamp(btn.Button, btn.Floor, false) //turn off light?
 				}
 
 			}
