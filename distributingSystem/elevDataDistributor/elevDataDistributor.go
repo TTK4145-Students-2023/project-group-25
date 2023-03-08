@@ -1,6 +1,10 @@
 package elevDataDistributor
 
-var localID string = "Local ID"
+import (
+	"fmt"
+)
+
+var localID string = "ID_1"
 
 // Datatypes
 type ElevData struct {
@@ -24,7 +28,7 @@ type WorldView struct {
 
 // input channels
 var (
-	allElevData_fromP2P = make(chan AllElevData)
+	allElevData_fromP2P = make(chan AllElevData_withID)
 	localElevData       = make(chan ElevData)
 	HallOrderArray      = make(chan [][2]bool)
 )
@@ -45,11 +49,16 @@ func dataDistributor(
 
 ) {
 
-	//init local Data Matrix
+	//init local Data Matrix with local ID
 	Local_DataMatrix := make(AllElevData)
 	Local_DataMatrix["ID1"] = ElevData{}
 	Local_DataMatrix["ID2"] = ElevData{}
 	Local_DataMatrix["ID3"] = ElevData{}
+
+	Local_withID := AllElevData_withID{
+		ID:      "ID1",
+		AllData: Local_DataMatrix,
+	}
 
 	// List of node IDs we are connected to
 	nodeIDs := []string{"ID1", "ID2", "ID3"}
@@ -60,7 +69,11 @@ func dataDistributor(
 			recivedID := DataFromP2P.ID
 			recivedData := DataFromP2P.AllData[recivedID]
 
-			Local_DataMatrix[recivedID] = recivedData
+			//fmt.Printf(" recieved ID: \n%v\n recieved DATA: \n%v\n", recivedID, recivedData)
+
+			Local_withID.AllData[recivedID] = recivedData
+
+			fmt.Printf("Local data after update: \n%v\n", Local_DataMatrix)
 
 			allElevData_toP2P <- Local_DataMatrix
 
