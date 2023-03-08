@@ -1,5 +1,5 @@
-module Module-go
+module project
 
 go 1.16
 
-replace Module-go => ../
+replace project => ../project
