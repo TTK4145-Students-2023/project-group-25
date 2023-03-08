@@ -1,9 +1,14 @@
 package main
 
 import (
-	P2P "Driver-go/P2Pntw"
+	elevtest "project/localElevator/elev_test"
 )
 
 func main() {
-	P2P.TestP2P()
+
+	//oassign.OrderAssignerTestFunc()
+	elevtest.RunSingleElevTest()
+
+	for {
+	}
 }
