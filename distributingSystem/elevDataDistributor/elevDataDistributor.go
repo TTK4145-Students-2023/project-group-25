@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-var localID string = "ID_1"
+var localID string = "ID1"
 
 // Datatypes
 type ElevData struct {
@@ -17,8 +17,8 @@ type ElevData struct {
 type AllElevData map[string]ElevData
 
 type AllElevData_withID struct {
-	ID      string
-	AllData AllElevData
+	ID      string      `json:"id"`
+	AllData AllElevData `json:"allData"`
 }
 
 type WorldView struct {
@@ -44,7 +44,7 @@ func dataDistributor(
 	allElevData_fromP2P <-chan AllElevData_withID,
 	localElevData <-chan ElevData,
 	HallOrderArray <-chan [][2]bool,
-	allElevData_toP2P chan<- AllElevData,
+	allElevData_toP2P chan<- AllElevData_withID,
 	WorldView_toAssigner chan<- WorldView,
 
 ) {
@@ -73,9 +73,9 @@ func dataDistributor(
 
 			Local_withID.AllData[recivedID] = recivedData
 
-			fmt.Printf("Local data after update: \n%v\n", Local_DataMatrix)
+			fmt.Printf("Local data after update: \n%v\n", Local_withID)
 
-			allElevData_toP2P <- Local_DataMatrix
+			allElevData_toP2P <- Local_withID
 
 		case localData := <-localElevData:
 
@@ -85,7 +85,7 @@ func dataDistributor(
 
 			data_aliveNodes := make(AllElevData)
 			for _, nodeID := range nodeIDs {
-				data_aliveNodes[nodeID] = Local_DataMatrix[nodeID]
+				data_aliveNodes[nodeID] = Local_withID.AllData[nodeID]
 			}
 
 			currentWorldView := WorldView{
