@@ -1,7 +1,7 @@
 package orderStateHandler
 
 import (
-	"Driver-go/elevio"
+	"project/elevio"
 )
 
 var localID string = "ID1"
