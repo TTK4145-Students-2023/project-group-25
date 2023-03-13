@@ -1,20 +1,21 @@
-package elevtest
+package intest
 
 import (
 	"fmt"
 	btnassign "project/buttonAssigner"
 	dt "project/commonDataTypes"
+	elevDataDistributor "project/distributingSystem/elevDataDistributor"
+	orderStateHandler "project/distributingSystem/orderStateHandler"
 	elevio "project/localElevator/elev_driver"
 	elevfsm "project/localElevator/elev_fsm"
 	oassign "project/orderAssigner"
 	"time"
 )
 
-func intermediateOrderDistributor(
-	hallEvent <-chan elevio.ButtonEvent,
-	handler_hallOrdersExecuted <-chan []elevio.ButtonEvent,
-	elev_data <-chan dt.ElevDataJSON,
-	ordersFromDistributor chan<- dt.CostFuncInput) {
+func intermediateOrderDistributor(hallEvent chan elevio.ButtonEvent,
+	handler_hallOrdersExecuted chan []elevio.ButtonEvent,
+	elev_data chan dt.ElevDataJSON,
+	ordersFromDistributor chan dt.CostFuncInput) {
 
 	orderOverview := dt.CostFuncInput{
 		HallRequests: [][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
@@ -46,7 +47,6 @@ func intermediateOrderDistributor(
 
 		case elevatorData := <-elev_data:
 			fmt.Printf("newElevData.\n")
-			fmt.Printf("ElevatorData:\n Beh: %s\n Dir: %s\n Floor: %d\n\n", elevatorData.Behavior, elevatorData.Direction, elevatorData.Floor)
 			orderOverview.States["127.0.0.1"] = elevatorData
 		}
 		ordersFromDistributor <- orderOverview
@@ -84,9 +84,18 @@ var (
 	drv_floors = make(chan int)
 	drv_obstr  = make(chan bool)
 	elev_data  = make(chan dt.ElevDataJSON)
+
+	//orderStateHandler channels
+	ReqStateMatrix_fromP2P = make(chan dt.RequestStateMatrix)
+	HallOrderArray         = make(chan [][2]bool)
+	ReqStateMatrix_toP2P   = make(chan dt.RequestStateMatrix)
+
+	// Data distributor channels
+	allElevData_fromP2P = make(chan dt.AllElevDataJSON_withID)
+	allElevData_toP2P   = make(chan dt.AllElevDataJSON_withID)
 )
 
-func RunSingleElevTest() {
+func RunAssignerAndDistributionIntegrationTest() {
 	elevio.Init("localhost:15657", elevfsm.N_FLOORS)
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(btnEvent)
@@ -94,11 +103,7 @@ func RunSingleElevTest() {
 
 	go btnassign.ButtonHandler(btnEvent, hallEvent, cabEvent)
 
-	go intermediateOrderDistributor(hallEvent,
-		handler_hallOrdersExecuted,
-		elev_data,
-		ordersFromDistributor)
-
+	// Order assigner
 	go testSpecDistributor(OrderAssignerBehaviourChan,
 		localIpAdressChan)
 	go oassign.OrderAssigner(OrderAssignerBehaviourChan,
@@ -107,6 +112,18 @@ func RunSingleElevTest() {
 		ordersFromMaster,
 		ordersToSlaves,
 		ordersLocal)
+
+	// DistributingSystem
+	go elevDataDistributor.DataDistributor(allElevData_fromP2P,
+		elev_data,
+		HallOrderArray,
+		allElevData_toP2P,
+		ordersFromDistributor)
+	go orderStateHandler.OrderStateHandler(ReqStateMatrix_fromP2P,
+		hallEvent,
+		handler_hallOrdersExecuted,
+		HallOrderArray,
+		ReqStateMatrix_toP2P)
 
 	time.Sleep(time.Millisecond * 40)
 

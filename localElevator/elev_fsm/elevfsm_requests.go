@@ -4,12 +4,7 @@ import (
 	elevio "project/localElevator/elev_driver"
 )
 
-type DirnBehaviourPair struct {
-	dirn      elevio.MotorDirection
-	behaviour ElevatorBehaviour
-}
-
-func requests_mergeHallAndCab(hallRequests [N_FLOORS][2]bool, cabRequests [N_FLOORS]bool) [N_FLOORS][N_BUTTONS]bool {
+func requests_mergeHallAndCab(hallRequests [][2]bool, cabRequests []bool) [N_FLOORS][N_BUTTONS]bool {
 	var requests [N_FLOORS][N_BUTTONS]bool
 	for i := 0; i < N_FLOORS; i++ {
 		requests[i] = [N_BUTTONS]bool{hallRequests[i][0], hallRequests[i][1], cabRequests[i]}
@@ -55,42 +50,42 @@ func requests_chooseDirection(e Elevator) DirnBehaviourPair {
 	switch e.Dirn {
 	case elevio.MD_Up:
 		if requests_above(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Up, behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
 		}
 		if requests_here(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Down, behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_DoorOpen}
 		}
 		if requests_below(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Down, behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
 		}
-		return DirnBehaviourPair{dirn: elevio.MD_Stop, behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
 
 	case elevio.MD_Down:
 		if requests_below(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Down, behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
 		}
 		if requests_here(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Up, behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_DoorOpen}
 		}
 		if requests_above(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Up, behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
 		}
-		return DirnBehaviourPair{dirn: elevio.MD_Stop, behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
 
 	case elevio.MD_Stop: // there should only be one request in the Stop case. Checking up or down first is arbitrary.
 		if requests_here(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Stop, behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_DoorOpen}
 		}
 		if requests_above(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Up, behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
 		}
 		if requests_below(e) {
-			return DirnBehaviourPair{dirn: elevio.MD_Down, behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
 		}
-		return DirnBehaviourPair{dirn: elevio.MD_Stop, behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
 
 	default:
-		return DirnBehaviourPair{dirn: elevio.MD_Stop, behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
 	}
 }
 

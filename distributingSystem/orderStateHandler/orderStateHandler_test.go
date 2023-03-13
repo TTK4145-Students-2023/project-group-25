@@ -1,7 +1,8 @@
 package orderStateHandler
 
 import (
-	"Driver-go/elevio"
+	dt "project/commonDataTypes"
+	elevio "project/localElevator/elev_driver"
 	"reflect"
 	"testing"
 )
@@ -12,14 +13,14 @@ func TestOrderStateHandler(t *testing.T) {
 	//Test Case 1:
 	t.Run("Check output for new matrix from P2P", func(t *testing.T) {
 		//input and output channels
-		ReqStateMatrix_fromP2P := make(chan RequestStateMatrix)
+		ReqStateMatrix_fromP2P := make(chan dt.RequestStateMatrix)
 		HallBtnPress := make(chan elevio.ButtonEvent)
 		orderExecuted := make(chan []elevio.ButtonEvent)
 		HallOrderArray := make(chan [][2]bool)
-		ReqStateMatrix_toP2P := make(chan RequestStateMatrix)
+		ReqStateMatrix_toP2P := make(chan dt.RequestStateMatrix)
 
 		// Start the orderStateHandler as a goroutine
-		go orderStateHandler(
+		go OrderStateHandler(
 			ReqStateMatrix_fromP2P,
 			HallBtnPress,
 			orderExecuted,
@@ -28,18 +29,18 @@ func TestOrderStateHandler(t *testing.T) {
 		)
 
 		//Mocking request matrix input from P2P
-		input_ReqStatMatrix := make(RequestStateMatrix)
-		input_ReqStatMatrix["ID1"] = singleNode_requestStates{{STATE_none, STATE_none},
+		input_ReqStatMatrix := make(dt.RequestStateMatrix)
+		input_ReqStatMatrix["ID1"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_new},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
 
-		input_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_none, STATE_none},
+		input_ReqStatMatrix["ID2"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_new, STATE_none},
 			{STATE_none, STATE_none}}
 
-		input_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_none, STATE_none},
+		input_ReqStatMatrix["ID3"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_new}}
@@ -52,18 +53,18 @@ func TestOrderStateHandler(t *testing.T) {
 		output_HallOrderArray := <-HallOrderArray
 
 		//exepcted output
-		expcted_ReqStatMatrix := make(RequestStateMatrix)
-		expcted_ReqStatMatrix["ID1"] = singleNode_requestStates{{STATE_none, STATE_none},
+		expcted_ReqStatMatrix := make(dt.RequestStateMatrix)
+		expcted_ReqStatMatrix["ID1"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_new}}
 
-		expcted_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_none, STATE_none},
+		expcted_ReqStatMatrix["ID2"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
 
-		expcted_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_none, STATE_none},
+		expcted_ReqStatMatrix["ID3"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
@@ -83,14 +84,14 @@ func TestOrderStateHandler(t *testing.T) {
 	//Test case 2:
 	t.Run("Check output Matrix for newly executed orders", func(t *testing.T) {
 		//input and output channels
-		ReqStateMatrix_fromP2P := make(chan RequestStateMatrix)
+		ReqStateMatrix_fromP2P := make(chan dt.RequestStateMatrix)
 		HallBtnPress := make(chan elevio.ButtonEvent)
 		orderExecuted := make(chan []elevio.ButtonEvent)
 		HallOrderArray := make(chan [][2]bool)
-		ReqStateMatrix_toP2P := make(chan RequestStateMatrix)
+		ReqStateMatrix_toP2P := make(chan dt.RequestStateMatrix)
 
 		// Start the orderStateHandler as a goroutine
-		go orderStateHandler(
+		go OrderStateHandler(
 			ReqStateMatrix_fromP2P,
 			HallBtnPress,
 			orderExecuted,
@@ -110,18 +111,18 @@ func TestOrderStateHandler(t *testing.T) {
 		executedOrders := []elevio.ButtonEvent{exec_btn_1, exec_btn_2}
 
 		//Mocking request matrix input from P2P
-		input_ReqStatMatrix := make(RequestStateMatrix)
-		input_ReqStatMatrix["ID1"] = singleNode_requestStates{{STATE_confirmed, STATE_confirmed},
+		input_ReqStatMatrix := make(dt.RequestStateMatrix)
+		input_ReqStatMatrix["ID1"] = dt.SingleNode_requestStates{{STATE_confirmed, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
 
-		input_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_confirmed, STATE_confirmed},
+		input_ReqStatMatrix["ID2"] = dt.SingleNode_requestStates{{STATE_confirmed, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
 
-		input_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_confirmed, STATE_confirmed},
+		input_ReqStatMatrix["ID3"] = dt.SingleNode_requestStates{{STATE_confirmed, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
@@ -135,18 +136,18 @@ func TestOrderStateHandler(t *testing.T) {
 		output_HallOrderArray := <-HallOrderArray
 
 		//exepcted output
-		expcted_ReqStatMatrix := make(RequestStateMatrix)
-		expcted_ReqStatMatrix["ID1"] = singleNode_requestStates{{STATE_none, STATE_confirmed},
+		expcted_ReqStatMatrix := make(dt.RequestStateMatrix)
+		expcted_ReqStatMatrix["ID1"] = dt.SingleNode_requestStates{{STATE_none, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_new, STATE_none},
 			{STATE_none, STATE_new}}
 
-		expcted_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_none, STATE_confirmed},
+		expcted_ReqStatMatrix["ID2"] = dt.SingleNode_requestStates{{STATE_none, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
 
-		expcted_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_none, STATE_confirmed},
+		expcted_ReqStatMatrix["ID3"] = dt.SingleNode_requestStates{{STATE_none, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
@@ -165,14 +166,14 @@ func TestOrderStateHandler(t *testing.T) {
 	//Test case 3: New hall button press
 	t.Run("Check output for newly confirmed order", func(t *testing.T) {
 		//input and output channels
-		ReqStateMatrix_fromP2P := make(chan RequestStateMatrix)
+		ReqStateMatrix_fromP2P := make(chan dt.RequestStateMatrix)
 		HallBtnPress := make(chan elevio.ButtonEvent)
 		orderExecuted := make(chan []elevio.ButtonEvent)
 		HallOrderArray := make(chan [][2]bool)
-		ReqStateMatrix_toP2P := make(chan RequestStateMatrix)
+		ReqStateMatrix_toP2P := make(chan dt.RequestStateMatrix)
 
 		// Start the orderStateHandler as a goroutine
-		go orderStateHandler(
+		go OrderStateHandler(
 			ReqStateMatrix_fromP2P,
 			HallBtnPress,
 			orderExecuted,
@@ -187,35 +188,35 @@ func TestOrderStateHandler(t *testing.T) {
 		}
 
 		//Mocking request matrix input from P2P
-		input_ReqStatMatrix := make(RequestStateMatrix)
-		input_ReqStatMatrix["ID1"] = singleNode_requestStates{{STATE_confirmed, STATE_confirmed},
+		input_ReqStatMatrix := make(dt.RequestStateMatrix)
+		input_ReqStatMatrix["ID1"] = dt.SingleNode_requestStates{{STATE_confirmed, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_none, STATE_none}}
 
-		input_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_confirmed, STATE_confirmed},
+		input_ReqStatMatrix["ID2"] = dt.SingleNode_requestStates{{STATE_confirmed, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_new, STATE_none},
 			{STATE_none, STATE_none}}
 
-		input_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_confirmed, STATE_confirmed},
+		input_ReqStatMatrix["ID3"] = dt.SingleNode_requestStates{{STATE_confirmed, STATE_confirmed},
 			{STATE_none, STATE_none},
 			{STATE_new, STATE_none},
 			{STATE_none, STATE_none}}
 
 		//exepcted output
-		expcted_ReqStatMatrix := make(RequestStateMatrix)
-		expcted_ReqStatMatrix["ID1"] = singleNode_requestStates{{STATE_none, STATE_none},
+		expcted_ReqStatMatrix := make(dt.RequestStateMatrix)
+		expcted_ReqStatMatrix["ID1"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_confirmed, STATE_none},
 			{STATE_none, STATE_none}}
 
-		expcted_ReqStatMatrix["ID2"] = singleNode_requestStates{{STATE_none, STATE_none},
+		expcted_ReqStatMatrix["ID2"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_new, STATE_none},
 			{STATE_none, STATE_none}}
 
-		expcted_ReqStatMatrix["ID3"] = singleNode_requestStates{{STATE_none, STATE_none},
+		expcted_ReqStatMatrix["ID3"] = dt.SingleNode_requestStates{{STATE_none, STATE_none},
 			{STATE_none, STATE_none},
 			{STATE_new, STATE_none},
 			{STATE_none, STATE_none}}

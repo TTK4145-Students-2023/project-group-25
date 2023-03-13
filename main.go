@@ -1,14 +1,13 @@
 package main
 
 import (
-	elevtest "project/localElevator/elev_test"
+	//elevtest "project/localElevator/elev_test"
+	intest "project/integrationTest"
 )
 
 func main() {
 
 	//oassign.OrderAssignerTestFunc()
-	elevtest.RunSingleElevTest()
-
-	for {
-	}
+	//elevtest.RunSingleElevTest()
+	intest.RunAssignerAndDistributionIntegrationTest()
 }

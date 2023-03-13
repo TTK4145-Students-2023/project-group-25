@@ -1,7 +1,7 @@
 package elevfsm
 
 import (
-	"fmt"
+	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
 	elevtimer "project/localElevator/elev_timer"
 	"time"
@@ -24,56 +24,63 @@ const (
 	CV_InDirn ClearRequestVariant = 1
 )
 
-type Config struct {
+type ElevatorConfig struct {
 	ClearRequestVariant ClearRequestVariant
 	DoorOpenDuration_s  time.Duration
+}
+
+type ElevatorBehaviour string
+
+const (
+	EB_DoorOpen ElevatorBehaviour = "doorOpen"
+	EB_Moving   ElevatorBehaviour = "moving"
+	EB_Idle     ElevatorBehaviour = "idle"
+)
+
+type DirnBehaviourPair struct {
+	Dirn      elevio.MotorDirection
+	Behaviour ElevatorBehaviour
 }
 
 type Elevator struct {
 	Floor        int
 	Dirn         elevio.MotorDirection
-	CabRequests  [N_FLOORS]bool
-	HallRequests [N_FLOORS][2]bool
+	CabRequests  []bool
+	HallRequests [][2]bool
 	Behaviour    ElevatorBehaviour
-	Config       Config
+	Config       ElevatorConfig
 }
 
-type ElevatorData struct {
-	Behaviour   ElevatorBehaviour
-	Floor       int
-	Dirn        elevio.MotorDirection
-	CabRequests [N_FLOORS]bool
-}
+func getElevatorData(e Elevator) dt.ElevDataJSON {
+	dirnToString := map[elevio.MotorDirection]string{
+		elevio.MD_Down: "down",
+		elevio.MD_Up:   "up",
+		elevio.MD_Stop: "stop"}
 
-type ElevatorBehaviour int
-
-const (
-	EB_Idle     ElevatorBehaviour = 0
-	EB_Moving   ElevatorBehaviour = 1
-	EB_DoorOpen ElevatorBehaviour = 2
-)
-
-func getElevatorData(e Elevator) ElevatorData {
-	return ElevatorData{Behaviour: e.Behaviour, Floor: e.Floor, Dirn: e.Dirn, CabRequests: e.CabRequests}
+	return dt.ElevDataJSON{
+		Behavior:    string(e.Behaviour),
+		Floor:       e.Floor,
+		Direction:   dirnToString[e.Dirn],
+		CabRequests: e.CabRequests}
 }
 
 func uninitializedElevator() Elevator {
 	return Elevator{
 		Floor:        -1,
 		Dirn:         elevio.MD_Stop,
-		CabRequests:  [N_FLOORS]bool{},
-		HallRequests: [N_FLOORS][2]bool{},
+		CabRequests:  []bool{false, false, false, false},
+		HallRequests: [][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
 		Behaviour:    EB_Idle,
-		Config:       Config{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3},
+		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3},
 	}
 }
 
 func FSM(
-	floor_hallRequests <-chan [N_FLOORS][2]bool,
+	floor_hallRequests <-chan [][2]bool,
 	floor_cabButtonEvent <-chan elevio.ButtonEvent,
 	drv_floors <-chan int,
 	drv_obstr <-chan bool,
-	elev_data chan<- ElevatorData,
+	elev_data chan<- dt.ElevDataJSON,
 	handler_hallOrdersExecuted chan<- []elevio.ButtonEvent) {
 
 	e := uninitializedElevator()
@@ -102,16 +109,15 @@ func FSM(
 	for {
 		select {
 		case e.HallRequests = <-floor_hallRequests:
-			fmt.Printf("e.HallRequests\n")
 			switch e.Behaviour {
 			case EB_DoorOpen:
 			case EB_Moving:
 			case EB_Idle:
 
 				dirnBehaviourPair := requests_chooseDirection(e)
-				if e.Dirn != dirnBehaviourPair.dirn || e.Behaviour != dirnBehaviourPair.behaviour {
-					e.Dirn = dirnBehaviourPair.dirn
-					e.Behaviour = dirnBehaviourPair.behaviour
+				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
+					e.Dirn = dirnBehaviourPair.Dirn
+					e.Behaviour = dirnBehaviourPair.Behaviour
 					elev_data <- getElevatorData(e)
 				}
 				switch e.Behaviour {
@@ -134,9 +140,9 @@ func FSM(
 			case EB_Idle:
 
 				dirnBehaviourPair := requests_chooseDirection(e)
-				if e.Dirn != dirnBehaviourPair.dirn || e.Behaviour != dirnBehaviourPair.behaviour {
-					e.Dirn = dirnBehaviourPair.dirn
-					e.Behaviour = dirnBehaviourPair.behaviour
+				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
+					e.Dirn = dirnBehaviourPair.Dirn
+					e.Behaviour = dirnBehaviourPair.Behaviour
 					elev_data <- getElevatorData(e)
 				}
 
@@ -181,9 +187,9 @@ func FSM(
 				handler_hallOrdersExecuted <- hallOrdersExecuted
 
 				dirnBehaviourPair := requests_chooseDirection(e)
-				if e.Dirn != dirnBehaviourPair.dirn || e.Behaviour != dirnBehaviourPair.behaviour {
-					e.Dirn = dirnBehaviourPair.dirn
-					e.Behaviour = dirnBehaviourPair.behaviour
+				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
+					e.Dirn = dirnBehaviourPair.Dirn
+					e.Behaviour = dirnBehaviourPair.Behaviour
 					elev_data <- getElevatorData(e)
 				}
 
