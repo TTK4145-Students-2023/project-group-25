@@ -1,10 +1,10 @@
 package dt
 
-type OrderAssignerBehaviour string
+type MasterSlaveRole string
 
 const (
-	OA_Master OrderAssignerBehaviour = "master"
-	OA_Slave  OrderAssignerBehaviour = "slave"
+	MS_Master MasterSlaveRole = "master"
+	MS_Slave  MasterSlaveRole = "slave"
 )
 
 type ElevDataJSON struct {

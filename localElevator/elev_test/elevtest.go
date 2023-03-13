@@ -54,22 +54,16 @@ func intermediateOrderDistributor(
 	}
 }
 
-func testSpecDistributor(OrderAssignerBehaviourChan chan dt.OrderAssignerBehaviour,
-	localIpAdressChan chan string) {
-	orderAssignerBehaviour := dt.OA_Master
-	localIpAdress := "127.0.0.1"
+func testSpecDistributor(OrderAssignerBehaviourChan chan dt.MasterSlaveRole) {
+	orderAssignerBehaviour := dt.MS_Master
 
 	for {
-		select {
-		case localIpAdressChan <- localIpAdress:
-		case OrderAssignerBehaviourChan <- orderAssignerBehaviour:
-		}
+		OrderAssignerBehaviourChan <- orderAssignerBehaviour
 	}
 }
 
 var (
-	OrderAssignerBehaviourChan = make(chan dt.OrderAssignerBehaviour)
-	localIpAdressChan          = make(chan string) // Chanel where local IP-adress is fetched
+	OrderAssignerBehaviourChan = make(chan dt.MasterSlaveRole)
 
 	ordersFromDistributor      = make(chan dt.CostFuncInput) // Input from order distributor
 	ordersFromMaster           = make(chan []byte)           // Input read from Master-Slave network module
@@ -99,10 +93,8 @@ func RunSingleElevTest() {
 		elev_data,
 		ordersFromDistributor)
 
-	go testSpecDistributor(OrderAssignerBehaviourChan,
-		localIpAdressChan)
+	go testSpecDistributor(OrderAssignerBehaviourChan)
 	go oassign.OrderAssigner(OrderAssignerBehaviourChan,
-		localIpAdressChan,
 		ordersFromDistributor,
 		ordersFromMaster,
 		ordersToSlaves,

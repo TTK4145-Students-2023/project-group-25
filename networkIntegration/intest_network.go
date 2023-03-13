@@ -1,7 +1,9 @@
-package intest
+package intestNTW
 
 import (
+	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
+	masterSlaveNTW "project/Network/masterSlaveNTW"
 	btnassign "project/buttonAssigner"
 	dt "project/commonDataTypes"
 	elevDataDistributor "project/distributingSystem/elevDataDistributor"
@@ -12,14 +14,6 @@ import (
 	"time"
 )
 
-func testSpecDistributor(masterSlaveRoleChan chan dt.MasterSlaveRole) {
-	masterSlaveRole := dt.MS_Master
-
-	for {
-		masterSlaveRoleChan <- masterSlaveRole
-	}
-}
-
 var (
 	masterSlaveRoleChan = make(chan dt.MasterSlaveRole)
 
@@ -28,6 +22,7 @@ var (
 	ordersToSlaves             = make(chan []byte)           // Input written to Master-Slave network module
 	ordersLocal                = make(chan [][2]bool)
 	handler_hallOrdersExecuted = make(chan []elevio.ButtonEvent)
+	peerUpdate_MS              = make(chan peers.PeerUpdate)
 	peerUpdate_DataDistributor = make(chan peers.PeerUpdate)
 	peerUpdate_OrderHandler    = make(chan peers.PeerUpdate)
 
@@ -49,16 +44,36 @@ var (
 	allElevData_toP2P   = make(chan dt.AllElevDataJSON_withID)
 )
 
-func RunAssignerAndDistributionIntegrationTest() {
+func RunNetworkWithAllTest() {
 	elevio.Init("localhost:15657", elevfsm.N_FLOORS)
+
+	//elvio
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(btnEvent)
 	go elevio.PollObstructionSwitch(drv_obstr)
 
 	go btnassign.ButtonHandler(btnEvent, hallEvent, cabEvent)
 
-	// Order assigner
-	go testSpecDistributor(masterSlaveRoleChan)
+	// Peerlist handler
+	go peers.PeerListHandler(peerUpdate_MS,
+		peerUpdate_DataDistributor,
+		peerUpdate_OrderHandler)
+
+	// Receive from NTW
+	go bcast.Receiver(15647, allElevData_fromP2P)
+	go bcast.Receiver(15648, ReqStateMatrix_fromP2P)
+
+	// Send to NTW
+	go bcast.Transmitter(15647, allElevData_toP2P)
+	go bcast.Transmitter(15648, ReqStateMatrix_toP2P)
+
+	go masterSlaveNTW.MasterSlaveNTW(peerUpdate_MS,
+		ordersToSlaves,
+		ordersFromMaster,
+		masterSlaveRoleChan,
+	)
+
+	// order assigner
 	go oassign.OrderAssigner(masterSlaveRoleChan,
 		ordersFromDistributor,
 		ordersFromMaster,
@@ -81,6 +96,7 @@ func RunAssignerAndDistributionIntegrationTest() {
 
 	time.Sleep(time.Millisecond * 40)
 
+	// FSM
 	go elevfsm.FSM(ordersLocal,
 		cabEvent,
 		drv_floors,
@@ -89,7 +105,6 @@ func RunAssignerAndDistributionIntegrationTest() {
 		handler_hallOrdersExecuted)
 
 	for {
-		// Kill orders that are yet to be handeled!
-		<-ordersToSlaves
+		time.Sleep(time.Second * 10)
 	}
 }

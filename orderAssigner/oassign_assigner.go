@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"project/Network/Utilities/localip"
 	dt "project/commonDataTypes"
 	"runtime"
 )
@@ -11,8 +12,7 @@ import (
 // Struct members must be public in order to be accessible by json.Marshal/.Unmarshal
 // This means they must start with a capital letter, so we need to use field renaming struct tags to make them camelCase
 
-func OrderAssigner(OrderAssignerBehaviourChan <-chan dt.OrderAssignerBehaviour,
-	localIpAdressChan <-chan string, // Chanel where local IP-adress is fetched
+func OrderAssigner(masterSlaveRoleChan <-chan dt.MasterSlaveRole,
 	ordersFromDistributor <-chan dt.CostFuncInput, // Input from order distributor
 	ordersFromMaster <-chan []byte, // Input read from Master-Slave network module
 	ordersToSlaves chan<- []byte, // Input written to Master-Slave network module
@@ -28,16 +28,18 @@ func OrderAssigner(OrderAssignerBehaviourChan <-chan dt.OrderAssignerBehaviour,
 		panic("OS not supported")
 	}
 
-	localIpAdress := ""
-	assignerBehaviour := dt.OA_Slave
+	localIpAdress, _ := localip.LocalIP()
+
+	assignerBehaviour := dt.MS_Slave
 	for {
 		select {
-		case localIpAdress = <-localIpAdressChan:
-		case assignerBehaviour = <-OrderAssignerBehaviourChan:
+		case assignerBehaviour = <-masterSlaveRoleChan:
+			fmt.Printf("We are now the %s\n", string(assignerBehaviour))
 		case input := <-ordersFromDistributor:
+			fmt.Printf("We have recieved data from Distributor\n")
 			switch assignerBehaviour {
-			case dt.OA_Slave:
-			case dt.OA_Master:
+			case dt.MS_Slave:
+			case dt.MS_Master:
 				jsonBytes, err := json.Marshal(input)
 				if err != nil {
 					fmt.Println("json.Marshal error: ", err)
@@ -58,12 +60,14 @@ func OrderAssigner(OrderAssignerBehaviourChan <-chan dt.OrderAssignerBehaviour,
 				if localHallOrders, ok := output[localIpAdress]; ok {
 					localOrders <- localHallOrders
 				}
+				fmt.Printf("Sending and ... ")
 				ordersToSlaves <- ret
+				fmt.Printf("...sendt! Data to slave\n\n")
 			}
 		case input := <-ordersFromMaster:
 			switch assignerBehaviour {
-			case dt.OA_Master:
-			case dt.OA_Slave:
+			case dt.MS_Master:
+			case dt.MS_Slave:
 				output := map[string][][2]bool{}
 				err := json.Unmarshal(input, &output)
 				if err != nil {

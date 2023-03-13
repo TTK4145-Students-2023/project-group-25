@@ -1,6 +1,7 @@
 package masterSlaveNTW
 
 import (
+	dt "project/commonDataTypes"
 	"strconv"
 	"strings"
 )
@@ -21,7 +22,7 @@ func Max(array []int) int {
 }
 
 // this function only checks which last byte is the biggest (can be developed)
-func MS_Assigner(localIP string, P2P_IP []string) MasterSlave_state {
+func MS_Assigner(localIP string, P2P_IP []string) dt.MasterSlaveRole {
 
 	localIPArr := strings.Split(localIP, ".")
 	ipLocalLastByteInt, _ := strconv.Atoi(localIPArr[len(localIPArr)-1])
@@ -35,28 +36,9 @@ func MS_Assigner(localIP string, P2P_IP []string) MasterSlave_state {
 
 	maxIP := Max(ipP2PintArray)
 
-	MS_role := MS_slave
+	MS_role := dt.MS_Slave
 	if maxIP <= ipLocalLastByteInt {
-		MS_role = MS_master
+		MS_role = dt.MS_Master
 	}
 	return MS_role
 }
-
-// // assign master or slave to order assigner
-// func MasterSlaveAssigner() {
-// 	MasterSlave := make(chan bool)
-// 	localIP, _ := localip.LocalIP()
-// 	for {
-// 		select {
-// 		case P2P_IP := <-IPAddrP2PRx:
-// 			i := CompIP(localIP, P2P_IP.Peers)
-// 			if i == 1 {
-// 				MasterSlave <- true
-// 				fmt.Println("Master")
-// 			} else {
-// 				MasterSlave <- false
-// 				fmt.Println("Slave")
-// 			}
-// 		}
-// 	}
-// }

@@ -8,23 +8,22 @@ import (
 
 func OrderAssignerTestFunc() {
 	var (
-		OrderAssignerBehaviourChan = make(chan dt.OrderAssignerBehaviour)
-		localIpAdressChan          = make(chan string) // Input with local IP-adress
+		masterSlaveRoleChan = make(chan dt.MasterSlaveRole)
+		localIpAdressChan   = make(chan string) // Input with local IP-adress
 
 		ordersFromDistributor = make(chan dt.CostFuncInput) // Input from order distributor
 		ordersFromMaster      = make(chan []byte)           // Input from Master-Slave network module
 		ordersToSlaves        = make(chan []byte)           // Output to Master-Slave network module
 		ordersLocal           = make(chan [][2]bool)        // Output to local elevator
 	)
-	go OrderAssigner(OrderAssignerBehaviourChan,
-		localIpAdressChan,
+	go OrderAssigner(masterSlaveRoleChan,
 		ordersFromDistributor,
 		ordersFromMaster,
 		ordersToSlaves,
 		ordersLocal)
 
 	for {
-		OrderAssignerBehaviourChan <- dt.OA_Master
+		masterSlaveRoleChan <- dt.MS_Master
 		localIpAdressChan <- "127.0.0.1"
 
 		input := dt.CostFuncInput{

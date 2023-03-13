@@ -2,10 +2,10 @@ package elevDataDistributor
 
 import (
 	"fmt"
+	"project/Network/Utilities/localip"
+	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 )
-
-var localID string = "127.0.0.1"
 
 // Statemachine for Distributor
 func DataDistributor(
@@ -14,23 +14,29 @@ func DataDistributor(
 	HallOrderArray <-chan [][2]bool,
 	allElevData_toP2P chan<- dt.AllElevDataJSON_withID,
 	WorldView_toAssigner chan<- dt.CostFuncInput,
+	peerUpdateChan <-chan peers.PeerUpdate,
 ) {
+	localIpAdress, _ := localip.LocalIP()
 	//init local Data Matrix with local ID
 	Local_DataMatrix := make(dt.AllElevDataJSON)
-	Local_DataMatrix[localID] = dt.ElevDataJSON{}
-	//Local_DataMatrix["ID2"] = dt.ElevDataJSON{}
-	//Local_DataMatrix["ID3"] = dt.ElevDataJSON{}
 
 	Local_withID := dt.AllElevDataJSON_withID{
-		ID:      localID,
+		ID:      localIpAdress,
 		AllData: Local_DataMatrix,
 	}
 
 	// List of node IDs we are connected to
-	nodeIDs := []string{localID} //, "ID2", "ID3"}
+	peerList := peers.PeerUpdate{}
 
 	for {
 		select {
+		case peerList = <-peerUpdateChan:
+			// Initilize new nodes
+			for _, nodeID := range peerList.Peers {
+				if _, valInMap := Local_DataMatrix[nodeID]; !valInMap {
+					Local_DataMatrix[nodeID] = dt.ElevDataJSON{}
+				}
+			}
 		case DataFromP2P := <-allElevData_fromP2P:
 			fmt.Printf("\n___DATA_DISTRIBUTOR___: \n AllElevdata from P2P recieved: \n%+v\n", DataFromP2P)
 
@@ -43,12 +49,12 @@ func DataDistributor(
 
 		case localData := <-localElevData:
 			fmt.Printf("\n___DATA_DISTRIBUTOR___: \n Local Elevdata recieved: \n%+v\n", localData)
-			Local_DataMatrix[localID] = localData
+			Local_DataMatrix[localIpAdress] = localData
 
 		case orders := <-HallOrderArray:
 			fmt.Printf("\n___DATA_DISTRIBUTOR___: \n HallOrderArray recieved: \n%+v\n", orders)
 			data_aliveNodes := make(dt.AllElevDataJSON)
-			for _, nodeID := range nodeIDs {
+			for _, nodeID := range peerList.Peers {
 				data_aliveNodes[nodeID] = Local_withID.AllData[nodeID]
 			}
 

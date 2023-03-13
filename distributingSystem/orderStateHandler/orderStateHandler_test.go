@@ -1,6 +1,7 @@
 package orderStateHandler
 
 import (
+	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
 	"reflect"
@@ -18,6 +19,7 @@ func TestOrderStateHandler(t *testing.T) {
 		orderExecuted := make(chan []elevio.ButtonEvent)
 		HallOrderArray := make(chan [][2]bool)
 		ReqStateMatrix_toP2P := make(chan dt.RequestStateMatrix)
+		peerUpdate_OrderHandler := make(chan peers.PeerUpdate)
 
 		// Start the orderStateHandler as a goroutine
 		go OrderStateHandler(
@@ -26,6 +28,7 @@ func TestOrderStateHandler(t *testing.T) {
 			orderExecuted,
 			HallOrderArray,
 			ReqStateMatrix_toP2P,
+			peerUpdate_OrderHandler,
 		)
 
 		//Mocking request matrix input from P2P
@@ -89,6 +92,7 @@ func TestOrderStateHandler(t *testing.T) {
 		orderExecuted := make(chan []elevio.ButtonEvent)
 		HallOrderArray := make(chan [][2]bool)
 		ReqStateMatrix_toP2P := make(chan dt.RequestStateMatrix)
+		peerUpdate_OrderHandler := make(chan peers.PeerUpdate)
 
 		// Start the orderStateHandler as a goroutine
 		go OrderStateHandler(
@@ -97,6 +101,7 @@ func TestOrderStateHandler(t *testing.T) {
 			orderExecuted,
 			HallOrderArray,
 			ReqStateMatrix_toP2P,
+			peerUpdate_OrderHandler,
 		)
 
 		//Mock executed orders
@@ -171,6 +176,7 @@ func TestOrderStateHandler(t *testing.T) {
 		orderExecuted := make(chan []elevio.ButtonEvent)
 		HallOrderArray := make(chan [][2]bool)
 		ReqStateMatrix_toP2P := make(chan dt.RequestStateMatrix)
+		peerUpdate_OrderHandler := make(chan peers.PeerUpdate)
 
 		// Start the orderStateHandler as a goroutine
 		go OrderStateHandler(
@@ -179,6 +185,7 @@ func TestOrderStateHandler(t *testing.T) {
 			orderExecuted,
 			HallOrderArray,
 			ReqStateMatrix_toP2P,
+			peerUpdate_OrderHandler,
 		)
 
 		//Mocking Hall btn press

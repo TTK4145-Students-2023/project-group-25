@@ -1,6 +1,7 @@
 package elevDataDistributor
 
 import (
+	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	"testing"
 )
@@ -17,6 +18,7 @@ func TestDataDistributor(t *testing.T) {
 		HallOrderArray := make(chan [][2]bool)
 		allElevData_toP2P := make(chan dt.AllElevDataJSON_withID)
 		WorlView_toAssigner := make(chan dt.CostFuncInput)
+		peerUpdate_DataDistributor := make(chan peers.PeerUpdate)
 
 		//start the distributor as a goroutine
 		go DataDistributor(
@@ -25,6 +27,7 @@ func TestDataDistributor(t *testing.T) {
 			HallOrderArray,
 			allElevData_toP2P,
 			WorlView_toAssigner,
+			peerUpdate_DataDistributor,
 		)
 
 		//mocking inputs
@@ -84,6 +87,7 @@ func TestDataDistributor(t *testing.T) {
 		HallOrderArray := make(chan [][2]bool)
 		allElevData_toP2P := make(chan dt.AllElevDataJSON_withID)
 		WorlView_toAssigner := make(chan dt.CostFuncInput)
+		peerUpdate_DataDistributor := make(chan peers.PeerUpdate)
 
 		//start the distributor as a goroutine
 		go DataDistributor(
@@ -92,6 +96,7 @@ func TestDataDistributor(t *testing.T) {
 			HallOrderArray,
 			allElevData_toP2P,
 			WorlView_toAssigner,
+			peerUpdate_DataDistributor,
 		)
 
 		//mocking inputs
