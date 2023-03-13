@@ -2,6 +2,7 @@ package oassign
 
 import (
 	"fmt"
+	"project/Network/Utilities/localip"
 	dt "project/commonDataTypes"
 	elevfsm "project/localElevator/elev_fsm"
 )
@@ -11,12 +12,14 @@ func OrderAssignerTestFunc() {
 		masterSlaveRoleChan = make(chan dt.MasterSlaveRole)
 		localIpAdressChan   = make(chan string) // Input with local IP-adress
 
-		ordersFromDistributor = make(chan dt.CostFuncInput) // Input from order distributor
-		ordersFromMaster      = make(chan []byte)           // Input from Master-Slave network module
-		ordersToSlaves        = make(chan []byte)           // Output to Master-Slave network module
-		ordersLocal           = make(chan [][2]bool)        // Output to local elevator
+		ordersFromDistributor = make(chan dt.CostFuncInput)     // Input from order distributor
+		ordersFromMaster      = make(chan map[string][][2]bool) // Input from Master-Slave network module
+		ordersToSlaves        = make(chan map[string][][2]bool) // Output to Master-Slave network module
+		ordersLocal           = make(chan [][2]bool)            // Output to local elevator
 	)
-	go OrderAssigner(masterSlaveRoleChan,
+	localIP, _ := localip.LocalIP()
+	go OrderAssigner(localIP,
+		masterSlaveRoleChan,
 		ordersFromDistributor,
 		ordersFromMaster,
 		ordersToSlaves,

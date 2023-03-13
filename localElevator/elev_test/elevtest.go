@@ -2,6 +2,7 @@ package elevtest
 
 import (
 	"fmt"
+	"project/Network/Utilities/localip"
 	btnassign "project/buttonAssigner"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
@@ -65,9 +66,9 @@ func testSpecDistributor(OrderAssignerBehaviourChan chan dt.MasterSlaveRole) {
 var (
 	OrderAssignerBehaviourChan = make(chan dt.MasterSlaveRole)
 
-	ordersFromDistributor      = make(chan dt.CostFuncInput) // Input from order distributor
-	ordersFromMaster           = make(chan []byte)           // Input read from Master-Slave network module
-	ordersToSlaves             = make(chan []byte)           // Input written to Master-Slave network module
+	ordersFromDistributor      = make(chan dt.CostFuncInput)     // Input from order distributor
+	ordersFromMaster           = make(chan map[string][][2]bool) // Input read from Master-Slave network module
+	ordersToSlaves             = make(chan map[string][][2]bool) // Input written to Master-Slave network module
 	ordersLocal                = make(chan [][2]bool)
 	handler_hallOrdersExecuted = make(chan []elevio.ButtonEvent)
 
@@ -81,6 +82,7 @@ var (
 )
 
 func RunSingleElevTest() {
+	localIP, _ := localip.LocalIP()
 	elevio.Init("localhost:15657", elevfsm.N_FLOORS)
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(btnEvent)
@@ -94,7 +96,8 @@ func RunSingleElevTest() {
 		ordersFromDistributor)
 
 	go testSpecDistributor(OrderAssignerBehaviourChan)
-	go oassign.OrderAssigner(OrderAssignerBehaviourChan,
+	go oassign.OrderAssigner(localIP,
+		OrderAssignerBehaviourChan,
 		ordersFromDistributor,
 		ordersFromMaster,
 		ordersToSlaves,

@@ -54,7 +54,6 @@ package P2P
 // }
 
 // func MakeMsgInput() dt.AllElevDataJSON_withID {
-// 	localIP, _ := localip.LocalIP()
 // 	AllElevDat := map[string]dt.ElevDataJSON{
 // 		"one": dt.ElevDataJSON{
 // 			Behavior:    "moving",
@@ -76,7 +75,6 @@ package P2P
 // }
 
 // func MakeMsgOutput() dt.AllElevDataJSON_withID {
-// 	localIP, _ := localip.LocalIP()
 // 	AllElevDat := map[string]dt.ElevDataJSON{
 // 		"one": dt.ElevDataJSON{
 // 			Behavior:    "idle",

@@ -2,7 +2,6 @@ package masterSlaveNTW
 
 import (
 	"project/Network/Utilities/bcast"
-	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	"reflect"
@@ -12,26 +11,23 @@ import (
 // datatypes
 type AssignedOrders map[string][]bool
 
-func MasterSlaveNTW(
-
+func MasterSlaveNTW(localIP string,
 	peerUpdate_MS chan peers.PeerUpdate,
-	localOrdersChan <-chan []byte,
-	externalOrdersChan chan<- []byte,
+	localOrdersChan <-chan map[string][][2]bool,
+	externalOrdersChan chan<- map[string][][2]bool,
 	masterOrSlave chan dt.MasterSlaveRole,
 ) {
 	var (
-		receiveOrdersChan   = make(chan []byte)
-		transmittOrdersChan = make(chan []byte)
+		receiveOrdersChan   = make(chan map[string][][2]bool)
+		transmittOrdersChan = make(chan map[string][][2]bool)
 	)
 
-	localIP, _ := localip.LocalIP()
-
-	go bcast.Receiver(15640, receiveOrdersChan)
-	go bcast.Transmitter(15640, transmittOrdersChan)
+	go bcast.Receiver(15660, receiveOrdersChan)
+	go bcast.Transmitter(15660, transmittOrdersChan)
 
 	local_MS_role := dt.MS_Slave
-	localOrders := []byte{}
-	externalOrders := []byte{}
+	localOrders := map[string][][2]bool{}
+	externalOrders := map[string][][2]bool{}
 
 	for {
 		select {
@@ -40,6 +36,7 @@ func MasterSlaveNTW(
 			masterOrSlave <- local_MS_role
 
 		case localOrders = <-localOrdersChan:
+
 		case newOrders := <-receiveOrdersChan:
 			if !reflect.DeepEqual(newOrders, externalOrders) {
 				externalOrders = newOrders

@@ -1,6 +1,7 @@
 package elevDataDistributor
 
 import (
+	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	"testing"
@@ -19,9 +20,9 @@ func TestDataDistributor(t *testing.T) {
 		allElevData_toP2P := make(chan dt.AllElevDataJSON_withID)
 		WorlView_toAssigner := make(chan dt.CostFuncInput)
 		peerUpdate_DataDistributor := make(chan peers.PeerUpdate)
-
+		localIP, _ := localip.LocalIP()
 		//start the distributor as a goroutine
-		go DataDistributor(
+		go DataDistributor(localIP,
 			allElevData_fromP2P,
 			localElevData,
 			HallOrderArray,
@@ -88,9 +89,9 @@ func TestDataDistributor(t *testing.T) {
 		allElevData_toP2P := make(chan dt.AllElevDataJSON_withID)
 		WorlView_toAssigner := make(chan dt.CostFuncInput)
 		peerUpdate_DataDistributor := make(chan peers.PeerUpdate)
-
+		localIP, _ := localip.LocalIP()
 		//start the distributor as a goroutine
-		go DataDistributor(
+		go DataDistributor(localIP,
 			allElevData_fromP2P,
 			localElevData,
 			HallOrderArray,

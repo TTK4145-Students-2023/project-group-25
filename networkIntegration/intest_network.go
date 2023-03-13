@@ -1,7 +1,8 @@
 package intestNTW
 
 import (
-	"project/Network/Utilities/bcast"
+	P2P "project/Network/P2Pntw"
+	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
 	masterSlaveNTW "project/Network/masterSlaveNTW"
 	btnassign "project/buttonAssigner"
@@ -17,9 +18,9 @@ import (
 var (
 	masterSlaveRoleChan = make(chan dt.MasterSlaveRole)
 
-	ordersFromDistributor      = make(chan dt.CostFuncInput) // Input from order distributor
-	ordersFromMaster           = make(chan []byte)           // Input read from Master-Slave network module
-	ordersToSlaves             = make(chan []byte)           // Input written to Master-Slave network module
+	ordersFromDistributor      = make(chan dt.CostFuncInput)     // Input from order distributor
+	ordersFromMaster           = make(chan map[string][][2]bool) // Input read from Master-Slave network module
+	ordersToSlaves             = make(chan map[string][][2]bool) // Input written to Master-Slave network module
 	ordersLocal                = make(chan [][2]bool)
 	handler_hallOrdersExecuted = make(chan []elevio.ButtonEvent)
 	peerUpdate_MS              = make(chan peers.PeerUpdate)
@@ -45,6 +46,7 @@ var (
 )
 
 func RunNetworkWithAllTest() {
+	localIP, _ := localip.LocalIP()
 	elevio.Init("localhost:15657", elevfsm.N_FLOORS)
 
 	//elvio
@@ -55,39 +57,40 @@ func RunNetworkWithAllTest() {
 	go btnassign.ButtonHandler(btnEvent, hallEvent, cabEvent)
 
 	// Peerlist handler
-	go peers.PeerListHandler(peerUpdate_MS,
+	go peers.PeerListHandler(localIP,
+		peerUpdate_MS,
 		peerUpdate_DataDistributor,
 		peerUpdate_OrderHandler)
 
-	// Receive from NTW
-	go bcast.Receiver(15647, allElevData_fromP2P)
-	go bcast.Receiver(15648, ReqStateMatrix_fromP2P)
-
-	// Send to NTW
-	go bcast.Transmitter(15647, allElevData_toP2P)
-	go bcast.Transmitter(15648, ReqStateMatrix_toP2P)
-
-	go masterSlaveNTW.MasterSlaveNTW(peerUpdate_MS,
+	go masterSlaveNTW.MasterSlaveNTW(localIP,
+		peerUpdate_MS,
 		ordersToSlaves,
 		ordersFromMaster,
 		masterSlaveRoleChan,
 	)
-
+	go P2P.P2Pntw(localIP,
+		allElevData_toP2P,
+		ReqStateMatrix_toP2P,
+		allElevData_fromP2P,
+		ReqStateMatrix_fromP2P)
 	// order assigner
-	go oassign.OrderAssigner(masterSlaveRoleChan,
+	go oassign.OrderAssigner(localIP,
+		masterSlaveRoleChan,
 		ordersFromDistributor,
 		ordersFromMaster,
 		ordersToSlaves,
 		ordersLocal)
 
 	// DistributingSystem
-	go elevDataDistributor.DataDistributor(allElevData_fromP2P,
+	go elevDataDistributor.DataDistributor(localIP,
+		allElevData_fromP2P,
 		elev_data,
 		HallOrderArray,
 		allElevData_toP2P,
 		ordersFromDistributor,
 		peerUpdate_DataDistributor)
-	go orderStateHandler.OrderStateHandler(ReqStateMatrix_fromP2P,
+	go orderStateHandler.OrderStateHandler(localIP,
+		ReqStateMatrix_fromP2P,
 		hallEvent,
 		handler_hallOrdersExecuted,
 		HallOrderArray,
@@ -105,6 +108,11 @@ func RunNetworkWithAllTest() {
 		handler_hallOrdersExecuted)
 
 	for {
-		time.Sleep(time.Second * 10)
+		event := <-btnEvent
+		if event.Button == elevio.BT_Cab {
+			cabEvent <- event
+		} else {
+			hallEvent <- event
+		}
 	}
 }
