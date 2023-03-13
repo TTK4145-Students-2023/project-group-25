@@ -36,7 +36,7 @@ var (
 	elev_data  = make(chan dt.ElevDataJSON)
 
 	//orderStateHandler channels
-	ReqStateMatrix_fromP2P = make(chan dt.RequestStateMatrix)
+	ReqStateMatrix_fromP2P = make(chan dt.RequestStateMatrix_with_ID)
 	HallOrderArray         = make(chan [][2]bool)
 	ReqStateMatrix_toP2P   = make(chan dt.RequestStateMatrix)
 

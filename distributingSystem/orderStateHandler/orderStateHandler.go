@@ -15,7 +15,7 @@ const (
 )
 
 func OrderStateHandler(localIP string,
-	ReqStateMatrix_fromP2P <-chan dt.RequestStateMatrix,
+	ReqStateMatrix_fromP2P <-chan dt.RequestStateMatrix_with_ID,
 	HallBtnPress <-chan elevio.ButtonEvent,
 	orderExecuted <-chan []elevio.ButtonEvent,
 	HallOrderArray chan<- [][2]bool,
@@ -43,6 +43,9 @@ func OrderStateHandler(localIP string,
 
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
 
+			// update external states based on sender ID
+			Local_ReqStatMatrix[matrix_fromP2P.IpAdress] = matrix_fromP2P.RequestMatrix[matrix_fromP2P.IpAdress]
+
 			// Iterate through the list of node IDs
 			for _, nodeID := range peerList.Peers {
 				// Skip the local node
@@ -50,8 +53,8 @@ func OrderStateHandler(localIP string,
 					continue
 				}
 				// Compare the requestStates from the other nodes with the Local requestStates
-				for floor := range matrix_fromP2P[nodeID] {
-					for btn_UpDown, other_state := range matrix_fromP2P[nodeID][floor] {
+				for floor := range matrix_fromP2P.RequestMatrix[nodeID] {
+					for btn_UpDown, other_state := range matrix_fromP2P.RequestMatrix[nodeID][floor] {
 
 						local_state := &Local_ReqStatMatrix[localIP][floor][btn_UpDown]
 
@@ -62,10 +65,13 @@ func OrderStateHandler(localIP string,
 								*local_state = STATE_none
 							}
 						case STATE_new:
+
 							if *local_state == STATE_none {
 								*local_state = STATE_new
 							}
+
 						case STATE_confirmed:
+
 							if *local_state == STATE_new {
 								*local_state = STATE_confirmed
 							}
@@ -73,6 +79,11 @@ func OrderStateHandler(localIP string,
 					}
 				}
 			}
+
+			fmt.Printf("______RSM sent to P2P__________\n")
+			fmt.Printf("Sender ID: %v\n", localIP)
+			fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
+			fmt.Printf("_________________________\n")
 
 		case BtnPress := <-HallBtnPress:
 			//fmt.Printf("\n___ORDERSTATEHANDLER___: \n Buttnpress recieved: \n%+v\n", BtnPress)
@@ -122,12 +133,13 @@ func OrderStateHandler(localIP string,
 				}
 			}
 		}
+
 		// Send updated Reqmatrix to P2P
 		ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-		fmt.Printf("______RSM sent to P2P__________\n")
-		fmt.Printf("Sender ID: %v\n", localIP)
-		fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
-		fmt.Printf("_________________________\n")
+		// fmt.Printf("______RSM sent to P2P__________\n")
+		// fmt.Printf("Sender ID: %v\n", localIP)
+		// fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
+		// fmt.Printf("_________________________\n")
 
 	}
 }

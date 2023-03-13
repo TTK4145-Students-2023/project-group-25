@@ -12,7 +12,7 @@ func P2Pntw(localIP string,
 	localWorldViewChan <-chan dt.AllElevDataJSON_withID,
 	localRequestStateMatrixChan <-chan dt.RequestStateMatrix,
 	externalWorldViewChan chan<- dt.AllElevDataJSON_withID,
-	externalRequestStateMatrixChan chan<- dt.RequestStateMatrix,
+	externalRequestStateMatrixChan chan<- dt.RequestStateMatrix_with_ID,
 ) {
 	var (
 		transmittWorldVeiw          = make(chan dt.AllElevDataJSON_withID)
@@ -25,7 +25,7 @@ func P2Pntw(localIP string,
 	localRequestStateMatrix := dt.RequestStateMatrix{}
 
 	externalWorldView := dt.AllElevDataJSON_withID{}
-	externalRequestStateMatrix := dt.RequestStateMatrix{}
+	externalRequestStateMatrix := dt.RequestStateMatrix_with_ID{}
 
 	//set timer
 	timer1 := time.NewTimer(100 * time.Millisecond)
@@ -45,13 +45,14 @@ func P2Pntw(localIP string,
 		case localWorldView = <-localWorldViewChan:
 
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
-			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix, externalRequestStateMatrix) {
+
+			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix.RequestMatrix, externalRequestStateMatrix) {
 				fmt.Printf("______RSM recieved from P2P__________\n")
 				fmt.Printf("Sender ID: %v\n", newRequestStateMatrix.IpAdress)
 				fmt.Printf("Data: %v\n", newRequestStateMatrix.RequestMatrix)
 				fmt.Printf("_________________________\n")
 
-				externalRequestStateMatrix = newRequestStateMatrix.RequestMatrix
+				externalRequestStateMatrix = newRequestStateMatrix
 				externalRequestStateMatrixChan <- externalRequestStateMatrix
 			}
 		case newWorldView := <-receiveWorldView:
