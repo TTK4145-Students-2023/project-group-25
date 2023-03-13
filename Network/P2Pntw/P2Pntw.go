@@ -46,17 +46,19 @@ func P2Pntw(localIP string,
 
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
 			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix, externalRequestStateMatrix) {
+				fmt.Printf("______RSM recieved from P2P__________\n")
+				fmt.Printf("Sender ID: %v\n", newRequestStateMatrix.IpAdress)
+				fmt.Printf("Data: %v\n", newRequestStateMatrix.RequestMatrix)
+				fmt.Printf("_________________________\n")
+
 				externalRequestStateMatrix = newRequestStateMatrix.RequestMatrix
-				fmt.Printf("send RSM\n")
 				externalRequestStateMatrixChan <- externalRequestStateMatrix
-				fmt.Printf("RSM sendt\n")
 			}
 		case newWorldView := <-receiveWorldView:
 			if localIP != newWorldView.ID && !reflect.DeepEqual(newWorldView, externalWorldView) {
+
 				externalWorldView = newWorldView
-				fmt.Printf("send WV\n")
 				externalWorldViewChan <- externalWorldView
-				fmt.Printf("WV sent\n")
 			}
 		case <-timer1.C:
 			//fmt.Printf("timer ticked\n")

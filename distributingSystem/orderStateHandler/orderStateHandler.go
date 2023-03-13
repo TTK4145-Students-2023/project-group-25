@@ -40,12 +40,8 @@ func OrderStateHandler(localIP string,
 					fmt.Printf("We are here in PeerList update init\n")
 				}
 			}
-			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-			fmt.Printf("RSM sendt to P2P:\n %+v\n", Local_ReqStatMatrix)
 
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
-
-			fmt.Printf("\n___ORDERSTATEHANDLER___ \n Input recived from P2P \n%+v\n", matrix_fromP2P)
 
 			// Iterate through the list of node IDs
 			for _, nodeID := range peerList.Peers {
@@ -77,17 +73,13 @@ func OrderStateHandler(localIP string,
 					}
 				}
 			}
-			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-			fmt.Printf("RSM sendt to P2P:\n %+v\n", Local_ReqStatMatrix)
 
 		case BtnPress := <-HallBtnPress:
-			fmt.Printf("\n___ORDERSTATEHANDLER___: \n Buttnpress recieved: \n%+v\n", BtnPress)
+			//fmt.Printf("\n___ORDERSTATEHANDLER___: \n Buttnpress recieved: \n%+v\n", BtnPress)
 			Local_ReqStatMatrix[localIP][BtnPress.Floor][BtnPress.Button] = STATE_new
-			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-			fmt.Printf("RSM sendt to P2P:\n %+v\n", Local_ReqStatMatrix)
 
 		case executedArray := <-orderExecuted:
-			fmt.Printf("\n___ORDERSTATEHANDLER___: \n  ExecutedArray Received \n%+v\n", executedArray)
+			//fmt.Printf("\n___ORDERSTATEHANDLER___: \n  ExecutedArray Received \n%+v\n", executedArray)
 
 			for _, btn := range executedArray {
 				if btn.Button == elevio.BT_Cab {
@@ -101,10 +93,9 @@ func OrderStateHandler(localIP string,
 				}
 
 			}
-			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-			fmt.Printf("RSM sendt to P2P:\n %+v\n", Local_ReqStatMatrix)
 
 		}
+
 		//Check if Order can be confirmed
 		//If all orders across IDs is State_new, order is confirmed and sendt to order Assigner
 		for floor := range Local_ReqStatMatrix[localIP] {
@@ -131,6 +122,13 @@ func OrderStateHandler(localIP string,
 				}
 			}
 		}
+		// Send updated Reqmatrix to P2P
+		ReqStateMatrix_toP2P <- Local_ReqStatMatrix
+		fmt.Printf("______RSM sent to P2P__________\n")
+		fmt.Printf("Sender ID: %v\n", localIP)
+		fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
+		fmt.Printf("_________________________\n")
+
 	}
 }
 

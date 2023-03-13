@@ -1,7 +1,6 @@
 package elevDataDistributor
 
 import (
-	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 )
@@ -36,6 +35,10 @@ func DataDistributor(localIP string,
 				}
 			}
 		case DataFromP2P := <-allElevData_fromP2P:
+			// fmt.Printf("______WW recived from P2P__________\n")
+			// fmt.Printf("Sender ID: %v\n", DataFromP2P.ID)
+			// fmt.Printf("Data: %v\n", DataFromP2P.AllData)
+			// fmt.Printf("_________________________\n")
 
 			recivedID := DataFromP2P.ID
 			recivedData := DataFromP2P.AllData[recivedID]
@@ -60,7 +63,10 @@ func DataDistributor(localIP string,
 
 		}
 		allElevData_toP2P <- Local_withID
-		fmt.Printf("WW sendt to P2P:\n %+v\n", Local_withID)
+		// fmt.Printf("______WW sendt to P2P__________\n")
+		// fmt.Printf("Sender ID: %v\n", Local_withID.ID)
+		// fmt.Printf("Data: %v\n", Local_withID.AllData)
+		// fmt.Printf("_________________________\n")
 
 	}
 }
