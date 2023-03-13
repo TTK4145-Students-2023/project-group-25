@@ -11,11 +11,13 @@ import (
 // datatypes
 type AssignedOrders map[string][]bool
 
+const BROADCAST_FREQ = 100 //ms
+
 func MasterSlaveNTW(localIP string,
-	peerUpdate_MS chan peers.PeerUpdate,
-	localOrdersChan <-chan map[string][][2]bool,
-	externalOrdersChan chan<- map[string][][2]bool,
-	masterOrSlave chan dt.MasterSlaveRole,
+	peerUpdateChan chan peers.PeerUpdate,
+	ordersToSlavesChan <-chan map[string][][2]bool,
+	ordersFromMasterChan chan<- map[string][][2]bool,
+	masterOrSlaveChan chan dt.MasterSlaveRole,
 ) {
 	var (
 		receiveOrdersChan   = make(chan map[string][][2]bool)
@@ -25,34 +27,34 @@ func MasterSlaveNTW(localIP string,
 	go bcast.Receiver(15660, receiveOrdersChan)
 	go bcast.Transmitter(15660, transmittOrdersChan)
 
-	local_MS_role := dt.MS_Slave
-	localOrders := map[string][][2]bool{}
-	externalOrders := map[string][][2]bool{}
+	timer := time.NewTimer(BROADCAST_FREQ * time.Millisecond)
+	MS_role := dt.MS_Slave
+	ordersToSlaves := map[string][][2]bool{}
+	ordersFromMaster := map[string][][2]bool{}
 
 	for {
 		select {
-		case peerList := <-peerUpdate_MS:
-			local_MS_role = MS_Assigner(localIP, peerList.Peers)
-			masterOrSlave <- local_MS_role
-
-		case localOrders = <-localOrdersChan:
-
-		case newOrders := <-receiveOrdersChan:
-			if !reflect.DeepEqual(newOrders, externalOrders) {
-				externalOrders = newOrders
-				switch local_MS_role {
+		case peerUpdate := <-peerUpdateChan:
+			if newRole := MS_Assigner(localIP, peerUpdate.Peers); newRole != MS_role {
+				masterOrSlaveChan <- MS_role
+			}
+		case ordersToSlaves = <-ordersToSlavesChan:
+		case newOrdersFromMaster := <-receiveOrdersChan:
+			if !reflect.DeepEqual(newOrdersFromMaster, ordersFromMaster) {
+				ordersFromMaster = newOrdersFromMaster
+				switch MS_role {
 				case dt.MS_Master:
 				case dt.MS_Slave:
-					externalOrdersChan <- externalOrders
+					ordersFromMasterChan <- ordersFromMaster
 				}
 			}
-		default:
-			time.Sleep(time.Millisecond * 40)
-		}
-		switch local_MS_role {
-		case dt.MS_Slave:
-		case dt.MS_Master:
-			transmittOrdersChan <- localOrders
+		case <-timer.C:
+			switch MS_role {
+			case dt.MS_Slave:
+			case dt.MS_Master:
+				transmittOrdersChan <- ordersToSlaves
+				timer.Reset(BROADCAST_FREQ * time.Millisecond)
+			}
 		}
 	}
 }

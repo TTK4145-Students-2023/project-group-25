@@ -23,24 +23,19 @@ func OrderStateHandler(localIP string,
 	peerUpdateChan <-chan peers.PeerUpdate,
 ) {
 
-	//init local RequestStateMatrix
 	Local_ReqStatMatrix := make(dt.RequestStateMatrix)
-	// Local_ReqStatMatrix[localIpAdress] = dt.SingleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
-
-	// List of node IDs we are connected to
-	peerList := peers.PeerUpdate{} // peerList := []string{localIpAdress}
+	peerList := peers.PeerUpdate{}
 
 	for {
+		reqStateMatrixUpdated := false
 		select {
 		case peerList = <-peerUpdateChan:
-			// Initilize new nodes
 			for _, nodeID := range peerList.Peers {
 				if _, valInMap := Local_ReqStatMatrix[nodeID]; !valInMap {
 					Local_ReqStatMatrix[nodeID] = dt.SingleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
-					fmt.Printf("We are here in PeerList update init\n")
+					reqStateMatrixUpdated = true
 				}
 			}
-
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
 
 			// update external states based on sender ID
@@ -57,23 +52,25 @@ func OrderStateHandler(localIP string,
 					for btn_UpDown, other_state := range matrix_fromP2P.RequestMatrix[nodeID][floor] {
 
 						local_state := &Local_ReqStatMatrix[localIP][floor][btn_UpDown]
-
 						//cyclic change of states
 						switch other_state {
 						case STATE_none:
 							if *local_state == STATE_confirmed {
 								*local_state = STATE_none
+								reqStateMatrixUpdated = true
 							}
 						case STATE_new:
 
 							if *local_state == STATE_none {
 								*local_state = STATE_new
+								reqStateMatrixUpdated = true
 							}
 
 						case STATE_confirmed:
 
 							if *local_state == STATE_new {
 								*local_state = STATE_confirmed
+								reqStateMatrixUpdated = true
 							}
 						}
 					}
@@ -87,24 +84,26 @@ func OrderStateHandler(localIP string,
 
 		case BtnPress := <-HallBtnPress:
 			//fmt.Printf("\n___ORDERSTATEHANDLER___: \n Buttnpress recieved: \n%+v\n", BtnPress)
-			Local_ReqStatMatrix[localIP][BtnPress.Floor][BtnPress.Button] = STATE_new
+			if Local_ReqStatMatrix[localIP][BtnPress.Floor][BtnPress.Button] == STATE_none {
+				Local_ReqStatMatrix[localIP][BtnPress.Floor][BtnPress.Button] = STATE_new
+				reqStateMatrixUpdated = true
+			}
 
 		case executedArray := <-orderExecuted:
 			//fmt.Printf("\n___ORDERSTATEHANDLER___: \n  ExecutedArray Received \n%+v\n", executedArray)
-
 			for _, btn := range executedArray {
 				if btn.Button == elevio.BT_Cab {
 					continue
 				}
 
 				local_State := Local_ReqStatMatrix[localIP][btn.Floor][btn.Button]
+				// Kva skjer her dersom order blir executed før state_confirmed?
 				if local_State == STATE_confirmed {
 					Local_ReqStatMatrix[localIP][btn.Floor][btn.Button] = STATE_none
+					reqStateMatrixUpdated = true
 					elevio.SetButtonLamp(btn.Button, btn.Floor, false) //turn off light?
 				}
-
 			}
-
 		}
 
 		//Check if Order can be confirmed
@@ -126,6 +125,7 @@ func OrderStateHandler(localIP string,
 
 				if NewOrder_OnAll_IDs {
 					Local_ReqStatMatrix[localIP][floor][btn_UpDown] = STATE_confirmed
+					reqStateMatrixUpdated = true
 					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true) //turn on light?
 					HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP)
 					//fmt.Printf("\n___ORDERSTATEHANDLER___: \n Hallorders sendt to DataDist: \n%+v\n", ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIpAdress))
@@ -133,14 +133,13 @@ func OrderStateHandler(localIP string,
 				}
 			}
 		}
-
-		// Send updated Reqmatrix to P2P
-		ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-		// fmt.Printf("______RSM sent to P2P__________\n")
-		// fmt.Printf("Sender ID: %v\n", localIP)
-		// fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
-		// fmt.Printf("_________________________\n")
-
+		if reqStateMatrixUpdated {
+			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
+			fmt.Printf("______RSM sent to P2P__________\n")
+			fmt.Printf("Sender ID: %v\n", localIP)
+			fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
+			fmt.Printf("_________________________\n")
+		}
 	}
 }
 

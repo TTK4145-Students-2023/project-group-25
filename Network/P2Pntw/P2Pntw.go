@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const BROADCAST_FREQ = 100 //ms
+
 func P2Pntw(localIP string,
 	localWorldViewChan <-chan dt.AllElevDataJSON_withID,
 	localRequestStateMatrixChan <-chan dt.RequestStateMatrix,
@@ -28,7 +30,7 @@ func P2Pntw(localIP string,
 	externalRequestStateMatrix := dt.RequestStateMatrix_with_ID{}
 
 	//set timer
-	timer1 := time.NewTimer(100 * time.Millisecond)
+	timer := time.NewTimer(BROADCAST_FREQ * time.Millisecond)
 
 	// Receive from NTW
 	go bcast.Receiver(15667, receiveWorldView)
@@ -41,9 +43,7 @@ func P2Pntw(localIP string,
 	for {
 		select {
 		case localRequestStateMatrix = <-localRequestStateMatrixChan:
-
 		case localWorldView = <-localWorldViewChan:
-
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
 
 			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix.RequestMatrix, externalRequestStateMatrix) {
@@ -61,12 +61,10 @@ func P2Pntw(localIP string,
 				externalWorldView = newWorldView
 				externalWorldViewChan <- externalWorldView
 			}
-		case <-timer1.C:
-			//fmt.Printf("timer ticked\n")
+		case <-timer.C:
 			transmittWorldVeiw <- localWorldView
 			transmittRequestStateMatrix <- dt.RequestStateMatrix_with_ID{IpAdress: localIP, RequestMatrix: localRequestStateMatrix}
-			timer1.Reset(100 * time.Millisecond)
+			timer.Reset(BROADCAST_FREQ * time.Millisecond)
 		}
-
 	}
 }
