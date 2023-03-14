@@ -78,11 +78,11 @@ func FSM(
 		CabRequests:  []bool{false, false, false, false},
 		HallRequests: [][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
 		Behaviour:    EB_Idle,
-		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3},
+		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3 * time.Second},
 	}
 
-	timer := time.NewTimer(2 * time.Second)
-	timer.Stop()
+	ElevTimer := time.NewTimer(2 * time.Millisecond)
+	<-ElevTimer.C
 
 	select {
 	case e.Floor = <-drv_floors:
@@ -119,7 +119,7 @@ func FSM(
 				case EB_Idle:
 				case EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					timer.Reset(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 
 				case EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
@@ -145,7 +145,7 @@ func FSM(
 				case EB_Idle:
 				case EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					timer.Reset(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 
 				case EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
@@ -164,12 +164,12 @@ func FSM(
 					e.Behaviour = EB_DoorOpen
 					elev_data <- getElevatorData(e)
 					if !obstr {
-						timer.Reset(e.Config.DoorOpenDuration_s)
+						ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 					}
 				}
 			}
 
-		case <-timer.C:
+		case <-ElevTimer.C:
 			switch e.Behaviour {
 			case EB_Idle:
 			case EB_Moving:
@@ -190,7 +190,7 @@ func FSM(
 
 				switch e.Behaviour {
 				case EB_DoorOpen:
-					timer.Reset(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 				case EB_Moving:
 					fallthrough
 				case EB_Idle:
@@ -201,14 +201,14 @@ func FSM(
 
 		case obstr = <-drv_obstr:
 			if obstr {
-				timer.Stop()
+				ElevTimer.Stop()
 			}
 			switch e.Behaviour {
 			case EB_Idle:
 			case EB_Moving:
 			case EB_DoorOpen:
 				if !obstr {
-					timer.Reset(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 				}
 			}
 		}
