@@ -38,7 +38,7 @@ func intermediateOrderDistributor(
 
 		case hallOrdersExecuted := <-handler_hallOrdersExecuted:
 			fmt.Printf("OrderExecute.\n")
-			for i := 0; i < len(hallOrdersExecuted); i++ {
+			for i := range hallOrdersExecuted {
 				if hallOrdersExecuted[i].Button != elevio.BT_Cab {
 					orderOverview.HallRequests[hallOrdersExecuted[i].Floor][hallOrdersExecuted[i].Button] = false
 					elevio.SetButtonLamp(hallOrdersExecuted[i].Button, hallOrdersExecuted[i].Floor, false)

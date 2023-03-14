@@ -1,12 +1,13 @@
 package elevfsm
 
 import (
+	"fmt"
 	elevio "project/localElevator/elev_driver"
 )
 
 func requests_mergeHallAndCab(hallRequests [][2]bool, cabRequests []bool) [N_FLOORS][N_BUTTONS]bool {
 	var requests [N_FLOORS][N_BUTTONS]bool
-	for i := 0; i < N_FLOORS; i++ {
+	for i := range requests {
 		requests[i] = [N_BUTTONS]bool{hallRequests[i][0], hallRequests[i][1], cabRequests[i]}
 	}
 	return requests
@@ -143,7 +144,7 @@ func requests_getHallOrdersExecuted(e Elevator) []elevio.ButtonEvent {
 }
 
 func requests_clearLocalHallRequest(e Elevator, clearEvent []elevio.ButtonEvent) Elevator {
-	for i := 0; i < len(clearEvent); i++ {
+	for i := range clearEvent {
 		e.HallRequests[clearEvent[i].Floor][clearEvent[i].Button] = false
 	}
 	return e
