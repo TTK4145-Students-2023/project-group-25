@@ -30,10 +30,31 @@ func PeerListHandler(localIP string,
 
 	for {
 		peerList := <-peerUpdateCh
-		fmt.Printf("________PEERLIST_________\n%+v\n\n", peerList)
-		peerUpdate_MS <- peerList
-		peerUpdate_DataDistributor <- peerList
-		peerUpdate_OrderHandler <- peerList
+		peerListSendt := [3]bool{false, false, false}
+		for peerListSendt != [3]bool{true, true, true} {
+			if !peerListSendt[0] {
+				select {
+				case peerUpdate_MS <- peerList:
+					peerListSendt[0] = true
+				default:
+				}
+			}
+			if !peerListSendt[1] {
+				select {
+				case peerUpdate_DataDistributor <- peerList:
+					peerListSendt[1] = true
+				default:
+				}
+			}
+
+			if !peerListSendt[2] {
+				select {
+				case peerUpdate_OrderHandler <- peerList:
+					peerListSendt[2] = true
+				default:
+				}
+			}
+		}
 	}
 }
 
