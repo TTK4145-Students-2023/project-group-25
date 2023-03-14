@@ -36,6 +36,7 @@ func MasterSlaveNTW(localIP string,
 		select {
 		case peerUpdate := <-peerUpdateChan:
 			if newRole := MS_Assigner(localIP, peerUpdate.Peers); newRole != MS_role {
+				MS_role = newRole
 				masterOrSlaveChan <- MS_role
 			}
 		case ordersToSlaves = <-ordersToSlavesChan:
