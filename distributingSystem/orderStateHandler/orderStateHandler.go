@@ -128,7 +128,7 @@ func OrderStateHandler(localIP string,
 					Local_ReqStatMatrix[localIP][floor][btn_UpDown] = STATE_confirmed
 					reqStateMatrixUpdated = true
 					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true) //turn on light?
-					HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP)
+
 					//fmt.Printf("\n___ORDERSTATEHANDLER___: \n Hallorders sendt to DataDist: \n%+v\n", ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIpAdress))
 
 				}
@@ -136,10 +136,7 @@ func OrderStateHandler(localIP string,
 		}
 		if reqStateMatrixUpdated {
 			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-			fmt.Printf("______RSM sent to P2P__________\n")
-			fmt.Printf("Sender ID: %v\n", localIP)
-			fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
-			fmt.Printf("_________________________\n")
+			HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP)
 		}
 	}
 }
