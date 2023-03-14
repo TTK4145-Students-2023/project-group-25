@@ -1,7 +1,6 @@
 package P2P
 
 import (
-	"fmt"
 	"project/Network/Utilities/bcast"
 	dt "project/commonDataTypes"
 	"reflect"
@@ -47,10 +46,10 @@ func P2Pntw(localIP string,
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
 
 			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix, externalRequestStateMatrix) {
-				fmt.Printf("______RSM recieved from P2P__________\n")
-				fmt.Printf("Sender ID: %v\n", newRequestStateMatrix.IpAdress)
-				fmt.Printf("Data: %v\n", newRequestStateMatrix.RequestMatrix)
-				fmt.Printf("_________________________\n")
+				// fmt.Printf("______RSM recieved from P2P__________\n")
+				// fmt.Printf("Sender ID: %v\n", newRequestStateMatrix.IpAdress)
+				// fmt.Printf("Data: %v\n", newRequestStateMatrix.RequestMatrix)
+				// fmt.Printf("_________________________\n")
 
 				externalRequestStateMatrix = newRequestStateMatrix
 				externalRequestStateMatrixChan <- externalRequestStateMatrix

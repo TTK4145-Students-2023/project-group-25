@@ -65,9 +65,9 @@ func OrderAssigner(localIP string,
 			case dt.MS_Slave:
 
 				if localHallOrders, ok := newOrders[localIP]; ok {
-					fmt.Printf("before send\n")
+
 					localOrders <- localHallOrders
-					fmt.Printf("after send\n")
+
 				}
 			}
 		}
