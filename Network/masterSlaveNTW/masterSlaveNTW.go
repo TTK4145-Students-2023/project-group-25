@@ -1,6 +1,7 @@
 package masterSlaveNTW
 
 import (
+	"fmt"
 	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
@@ -37,7 +38,9 @@ func MasterSlaveNTW(localIP string,
 		case peerUpdate := <-peerUpdateChan:
 			if newRole := MS_Assigner(localIP, peerUpdate.Peers); newRole != MS_role {
 				MS_role = newRole
+				fmt.Printf("MS, deadlock 1! ")
 				masterOrSlaveChan <- MS_role
+				fmt.Printf("... kidding, no MS deadlock 1...\n ")
 			}
 		case ordersToSlaves = <-ordersToSlavesChan:
 		case newOrdersFromMaster := <-receiveOrdersChan:
@@ -46,7 +49,9 @@ func MasterSlaveNTW(localIP string,
 				switch MS_role {
 				case dt.MS_Master:
 				case dt.MS_Slave:
+					fmt.Printf("MS, deadlock 2! ")
 					ordersFromMasterChan <- ordersFromMaster
+					fmt.Printf("... kidding, no MS deadlock 2...\n ")
 				}
 			}
 		case <-timer.C:

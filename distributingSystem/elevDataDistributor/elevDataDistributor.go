@@ -17,23 +17,12 @@ func DataDistributor(localIP string,
 ) {
 	//init local Data Matrix with local ID
 	Local_DataMatrix := make(dt.AllElevDataJSON)
-
-	// Local_withID := dt.AllElevDataJSON_withID{
-	// 	ID:      localIP,
-	// 	AllData: Local_DataMatrix,
-	// }
-
-	// List of node IDs we are connected to
 	peerList := peers.PeerUpdate{}
 
 	for {
 		select {
 		case peerList = <-peerUpdateChan:
 		case DataFromP2P := <-allElevData_fromP2P:
-			fmt.Printf("______WW recived from P2P__________\n")
-			fmt.Printf("Sender ID: %v\n", DataFromP2P.ID)
-			fmt.Printf("Data: %v\n", DataFromP2P.AllData)
-			fmt.Printf("_________________________\n")
 
 			recivedID := DataFromP2P.ID
 			recivedData := DataFromP2P.AllData[recivedID]
@@ -59,17 +48,14 @@ func DataDistributor(localIP string,
 					HallRequests: orders,
 					States:       data_aliveNodes,
 				}
-
+				fmt.Printf("DATADIST, deadlock 1! ")
 				WorldView_toAssigner <- currentWorldView
+				fmt.Printf("... kidding, no DATADIST deadlock 1...\n ")
 			}
 		}
-
+		fmt.Printf("DATADIST, deadlock 2! ")
 		allElevData_toP2P <- dt.AllElevDataJSON_withID{ID: localIP, AllData: Local_DataMatrix}
-
-		fmt.Printf("______WW sendt to P2P__________\n")
-		fmt.Printf("Sender ID: %v\n", localIP)
-		fmt.Printf("Data: %v\n", Local_DataMatrix)
-		fmt.Printf("_________________________\n")
+		fmt.Printf("... kidding, no DATADIST deadlock 2...\n ")
 
 	}
 }

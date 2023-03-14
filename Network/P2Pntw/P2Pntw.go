@@ -1,6 +1,7 @@
 package P2P
 
 import (
+	"fmt"
 	"project/Network/Utilities/bcast"
 	dt "project/commonDataTypes"
 	"reflect"
@@ -46,19 +47,18 @@ func P2Pntw(localIP string,
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
 
 			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix, externalRequestStateMatrix) {
-				// fmt.Printf("______RSM recieved from P2P__________\n")
-				// fmt.Printf("Sender ID: %v\n", newRequestStateMatrix.IpAdress)
-				// fmt.Printf("Data: %v\n", newRequestStateMatrix.RequestMatrix)
-				// fmt.Printf("_________________________\n")
-
 				externalRequestStateMatrix = newRequestStateMatrix
+				fmt.Printf("P2P, deadlock 1! ")
 				externalRequestStateMatrixChan <- externalRequestStateMatrix
+				fmt.Printf("... kidding, no P2P deadlock 1...\n ")
 			}
 		case newWorldView := <-receiveWorldView:
 			if localIP != newWorldView.ID && !reflect.DeepEqual(newWorldView, externalWorldView) {
 
 				externalWorldView = newWorldView
+				fmt.Printf("P2P, deadlock 2! ")
 				externalWorldViewChan <- externalWorldView
+				fmt.Printf("... kidding, no P2P deadlock 2...\n ")
 			}
 		case <-timer.C:
 			transmittWorldVeiw <- localWorldView

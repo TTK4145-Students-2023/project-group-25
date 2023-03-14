@@ -1,6 +1,7 @@
 package orderStateHandler
 
 import (
+	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
@@ -36,10 +37,8 @@ func OrderStateHandler(localIP string,
 				}
 			}
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
-
 			// update external states based on sender ID
 			Local_ReqStatMatrix[matrix_fromP2P.IpAdress] = matrix_fromP2P.RequestMatrix[matrix_fromP2P.IpAdress]
-
 			// Iterate through the list of node IDs
 			for _, nodeID := range peerList.Peers {
 				// Skip the local node
@@ -80,23 +79,14 @@ func OrderStateHandler(localIP string,
 					}
 				}
 			}
-
-			// fmt.Printf("______RSM sent to P2P__________\n")
-			// fmt.Printf("Sender ID: %v\n", localIP)
-			// fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
-			// fmt.Printf("_________________________\n")
-
 		case BtnPress := <-HallBtnPress:
-			//fmt.Printf("\n___ORDERSTATEHANDLER___: \n Buttnpress recieved: \n%+v\n", BtnPress)
 			localStateArray := Local_ReqStatMatrix[localIP]
 			if localStateArray[BtnPress.Floor][BtnPress.Button] == STATE_none {
 				localStateArray[BtnPress.Floor][BtnPress.Button] = STATE_new
 				Local_ReqStatMatrix[localIP] = localStateArray
 				reqStateMatrixUpdated = true
 			}
-
 		case executedArray := <-orderExecuted:
-			//fmt.Printf("\n___ORDERSTATEHANDLER___: \n  ExecutedArray Received \n%+v\n", executedArray)
 			for _, btn := range executedArray {
 				if btn.Button == elevio.BT_Cab {
 					continue
@@ -111,7 +101,6 @@ func OrderStateHandler(localIP string,
 				}
 			}
 		}
-
 		//Check if Order can be confirmed
 		//If all orders across IDs is State_new, order is confirmed and sendt to order Assigner
 		for floor, floorStateArray := range Local_ReqStatMatrix[localIP] {
@@ -135,17 +124,17 @@ func OrderStateHandler(localIP string,
 					Local_ReqStatMatrix[localIP] = localStateArray
 					reqStateMatrixUpdated = true
 					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true) //turn on light?
-					//fmt.Printf("\n___ORDERSTATEHANDLER___: \n Hallorders sendt to DataDist: \n%+v\n", ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIpAdress))
 				}
 			}
 		}
 		if reqStateMatrixUpdated {
+			fmt.Printf("ORDERHANDLER, deadlock 1! ")
 			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
+			fmt.Printf("... kidding, no ORDERHANDLER deadlock 1...\n ")
+
+			fmt.Printf("ORDERHANDLER, deadlock 2! ")
 			HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP)
-			// fmt.Printf("______RSM sent to P2P__________\n")
-			// fmt.Printf("Sender ID: %v\n", localIP)
-			// fmt.Printf("Data: %v\n", Local_ReqStatMatrix)
-			// fmt.Printf("_________________________\n")
+			fmt.Printf("... kidding, no ORDERHANDLER deadlock 2...\n ")
 		}
 	}
 }
