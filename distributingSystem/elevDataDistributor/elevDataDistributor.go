@@ -9,7 +9,7 @@ import (
 func DataDistributor(localIP string,
 	allElevData_fromP2P <-chan dt.AllElevDataJSON_withID,
 	localElevData <-chan dt.ElevDataJSON,
-	HallOrderArray <-chan [][2]bool,
+	HallOrderArray <-chan [dt.N_FLOORS][2]bool,
 	allElevData_toP2P chan<- dt.AllElevDataJSON_withID,
 	WorldView_toAssigner chan<- dt.CostFuncInput,
 	peerUpdateChan <-chan peers.PeerUpdate,

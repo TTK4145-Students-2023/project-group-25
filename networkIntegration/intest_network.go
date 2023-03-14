@@ -18,10 +18,10 @@ import (
 var (
 	masterSlaveRoleChan = make(chan dt.MasterSlaveRole)
 
-	ordersFromDistributor      = make(chan dt.CostFuncInput)     // Input from order distributor
-	ordersFromMaster           = make(chan map[string][][2]bool) // Input read from Master-Slave network module
-	ordersToSlaves             = make(chan map[string][][2]bool) // Input written to Master-Slave network module
-	ordersLocal                = make(chan [][2]bool)
+	ordersFromDistributor      = make(chan dt.CostFuncInput)                // Input from order distributor
+	ordersFromMaster           = make(chan map[string][dt.N_FLOORS][2]bool) // Input read from Master-Slave network module
+	ordersToSlaves             = make(chan map[string][dt.N_FLOORS][2]bool) // Input written to Master-Slave network module
+	ordersLocal                = make(chan [dt.N_FLOORS][2]bool)
 	handler_hallOrdersExecuted = make(chan []elevio.ButtonEvent)
 	peerUpdate_MS              = make(chan peers.PeerUpdate)
 	peerUpdate_DataDistributor = make(chan peers.PeerUpdate)
@@ -37,7 +37,7 @@ var (
 
 	//orderStateHandler channels
 	ReqStateMatrix_fromP2P = make(chan dt.RequestStateMatrix_with_ID)
-	HallOrderArray         = make(chan [][2]bool)
+	HallOrderArray         = make(chan [dt.N_FLOORS][2]bool)
 	ReqStateMatrix_toP2P   = make(chan dt.RequestStateMatrix)
 
 	// Data distributor channels
@@ -47,7 +47,7 @@ var (
 
 func RunNetworkWithAllTest() {
 	localIP, _ := localip.LocalIP()
-	elevio.Init("localhost:15657", elevfsm.N_FLOORS)
+	elevio.Init("localhost:15657", dt.N_FLOORS)
 
 	//elvio
 	go elevio.PollFloorSensor(drv_floors)

@@ -15,13 +15,13 @@ const BROADCAST_FREQ = 100 //ms
 
 func MasterSlaveNTW(localIP string,
 	peerUpdateChan chan peers.PeerUpdate,
-	ordersToSlavesChan <-chan map[string][][2]bool,
-	ordersFromMasterChan chan<- map[string][][2]bool,
+	ordersToSlavesChan <-chan map[string][dt.N_FLOORS][2]bool,
+	ordersFromMasterChan chan<- map[string][dt.N_FLOORS][2]bool,
 	masterOrSlaveChan chan dt.MasterSlaveRole,
 ) {
 	var (
-		receiveOrdersChan   = make(chan map[string][][2]bool)
-		transmittOrdersChan = make(chan map[string][][2]bool)
+		receiveOrdersChan   = make(chan map[string][dt.N_FLOORS][2]bool)
+		transmittOrdersChan = make(chan map[string][dt.N_FLOORS][2]bool)
 	)
 
 	go bcast.Receiver(15660, receiveOrdersChan)
@@ -29,8 +29,8 @@ func MasterSlaveNTW(localIP string,
 
 	timer := time.NewTimer(BROADCAST_FREQ * time.Millisecond)
 	MS_role := dt.MS_Slave
-	ordersToSlaves := map[string][][2]bool{}
-	ordersFromMaster := map[string][][2]bool{}
+	ordersToSlaves := map[string][dt.N_FLOORS][2]bool{}
+	ordersFromMaster := map[string][dt.N_FLOORS][2]bool{}
 
 	for {
 		select {

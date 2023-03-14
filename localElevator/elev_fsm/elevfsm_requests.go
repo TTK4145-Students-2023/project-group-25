@@ -1,22 +1,22 @@
 package elevfsm
 
 import (
-	"fmt"
+	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
 )
 
-func requests_mergeHallAndCab(hallRequests [][2]bool, cabRequests []bool) [N_FLOORS][N_BUTTONS]bool {
-	var requests [N_FLOORS][N_BUTTONS]bool
+func requests_mergeHallAndCab(hallRequests [dt.N_FLOORS][2]bool, cabRequests [dt.N_FLOORS]bool) [dt.N_FLOORS][dt.N_BUTTONS]bool {
+	var requests [dt.N_FLOORS][dt.N_BUTTONS]bool
 	for i := range requests {
-		requests[i] = [N_BUTTONS]bool{hallRequests[i][0], hallRequests[i][1], cabRequests[i]}
+		requests[i] = [dt.N_BUTTONS]bool{hallRequests[i][0], hallRequests[i][1], cabRequests[i]}
 	}
 	return requests
 }
 
 func requests_above(e Elevator) bool {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
-	for f := e.Floor + 1; f < N_FLOORS; f++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
+	for f := e.Floor + 1; f < dt.N_FLOORS; f++ {
+		for btn := 0; btn < dt.N_BUTTONS; btn++ {
 			if requests[f][btn] {
 				return true
 			}
@@ -28,7 +28,7 @@ func requests_above(e Elevator) bool {
 func requests_below(e Elevator) bool {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
 	for f := 0; f < e.Floor; f++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
+		for btn := 0; btn < dt.N_BUTTONS; btn++ {
 			if requests[f][btn] {
 				return true
 			}
@@ -39,7 +39,7 @@ func requests_below(e Elevator) bool {
 
 func requests_here(e Elevator) bool {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
-	for btn := 0; btn < N_BUTTONS; btn++ {
+	for btn := 0; btn < dt.N_BUTTONS; btn++ {
 		if requests[e.Floor][btn] {
 			return true
 		}

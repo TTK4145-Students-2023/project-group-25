@@ -16,7 +16,7 @@ func TestDataDistributor(t *testing.T) {
 		//input and output channels
 		allElevData_fromP2P := make(chan dt.AllElevDataJSON_withID)
 		localElevData := make(chan dt.ElevDataJSON)
-		HallOrderArray := make(chan [][2]bool)
+		HallOrderArray := make(chan [dt.N_FLOORS][2]bool)
 		allElevData_toP2P := make(chan dt.AllElevDataJSON_withID)
 		WorlView_toAssigner := make(chan dt.CostFuncInput)
 		peerUpdate_DataDistributor := make(chan peers.PeerUpdate)
@@ -36,7 +36,7 @@ func TestDataDistributor(t *testing.T) {
 			Behavior:    "Moving",
 			Floor:       3,
 			Direction:   "up",
-			CabRequests: []bool{false, false, false, false},
+			CabRequests: [dt.N_FLOORS]bool{false, false, false, false},
 		}
 
 		//input data from P2P
@@ -45,21 +45,21 @@ func TestDataDistributor(t *testing.T) {
 			Behavior:    "Idle",
 			Floor:       2,
 			Direction:   "up",
-			CabRequests: []bool{true, false, true, false},
+			CabRequests: [dt.N_FLOORS]bool{true, false, true, false},
 		}
 
 		DataMatrix["ID2"] = dt.ElevDataJSON{
 			Behavior:    "Idle",
 			Floor:       2,
 			Direction:   "up",
-			CabRequests: []bool{true, false, true, false},
+			CabRequests: [dt.N_FLOORS]bool{true, false, true, false},
 		}
 
 		DataMatrix["ID3"] = dt.ElevDataJSON{
 			Behavior:    "Idle",
 			Floor:       2,
 			Direction:   "up",
-			CabRequests: []bool{true, false, true, false},
+			CabRequests: [dt.N_FLOORS]bool{true, false, true, false},
 		}
 
 		input_datamatrix_withID := dt.AllElevDataJSON_withID{
@@ -85,7 +85,7 @@ func TestDataDistributor(t *testing.T) {
 		//input and output channels
 		allElevData_fromP2P := make(chan dt.AllElevDataJSON_withID)
 		localElevData := make(chan dt.ElevDataJSON)
-		HallOrderArray := make(chan [][2]bool)
+		HallOrderArray := make(chan [dt.N_FLOORS][2]bool)
 		allElevData_toP2P := make(chan dt.AllElevDataJSON_withID)
 		WorlView_toAssigner := make(chan dt.CostFuncInput)
 		peerUpdate_DataDistributor := make(chan peers.PeerUpdate)
@@ -101,7 +101,7 @@ func TestDataDistributor(t *testing.T) {
 		)
 
 		//mocking inputs
-		input_HallOrders := [][2]bool{{true, false}, {true, false}, {true, false}, {true, false}}
+		input_HallOrders := [dt.N_FLOORS][2]bool{{true, false}, {true, false}, {true, false}, {true, false}}
 
 		//input data from P2P
 		DataMatrix := make(dt.AllElevDataJSON)
@@ -109,21 +109,21 @@ func TestDataDistributor(t *testing.T) {
 			Behavior:    "Idle",
 			Floor:       2,
 			Direction:   "up",
-			CabRequests: []bool{true, false, true, false},
+			CabRequests: [dt.N_FLOORS]bool{true, false, true, false},
 		}
 
 		DataMatrix["ID2"] = dt.ElevDataJSON{
 			Behavior:    "Idle",
 			Floor:       2,
 			Direction:   "up",
-			CabRequests: []bool{true, false, true, false},
+			CabRequests: [dt.N_FLOORS]bool{true, false, true, false},
 		}
 
 		DataMatrix["ID3"] = dt.ElevDataJSON{
 			Behavior:    "Idle",
 			Floor:       2,
 			Direction:   "up",
-			CabRequests: []bool{true, false, true, false},
+			CabRequests: [dt.N_FLOORS]bool{true, false, true, false},
 		}
 
 		input_datamatrix_withID := dt.AllElevDataJSON_withID{

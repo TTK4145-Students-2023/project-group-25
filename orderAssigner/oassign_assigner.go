@@ -14,9 +14,9 @@ import (
 func OrderAssigner(localIP string,
 	masterSlaveRoleChan <-chan dt.MasterSlaveRole,
 	ordersFromDistributor <-chan dt.CostFuncInput, // Input from order distributor
-	ordersFromMaster <-chan map[string][][2]bool, // Input read from Master-Slave network module
-	ordersToSlaves chan<- map[string][][2]bool, // Input written to Master-Slave network module
-	localOrders chan<- [][2]bool) { // Input to local Elevator FSM
+	ordersFromMaster <-chan map[string][dt.N_FLOORS][2]bool, // Input read from Master-Slave network module
+	ordersToSlaves chan<- map[string][dt.N_FLOORS][2]bool, // Input written to Master-Slave network module
+	localOrders chan<- [dt.N_FLOORS][2]bool) { // Input to local Elevator FSM
 
 	hraExecutable := ""
 	switch runtime.GOOS {
@@ -48,7 +48,7 @@ func OrderAssigner(localIP string,
 					fmt.Println(string(ret))
 					break
 				}
-				output := map[string][][2]bool{}
+				output := map[string][dt.N_FLOORS][2]bool{}
 				err = json.Unmarshal(ret, &output)
 				if err != nil {
 					fmt.Println("json.Unmarshal error: ", err)
