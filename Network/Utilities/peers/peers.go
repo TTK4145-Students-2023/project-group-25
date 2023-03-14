@@ -30,6 +30,7 @@ func PeerListHandler(localIP string,
 
 	for {
 		peerList := <-peerUpdateCh
+		fmt.Printf("________PEERLIST_________\n%+v\n\n", peerList)
 		peerUpdate_MS <- peerList
 		peerUpdate_DataDistributor <- peerList
 		peerUpdate_OrderHandler <- peerList

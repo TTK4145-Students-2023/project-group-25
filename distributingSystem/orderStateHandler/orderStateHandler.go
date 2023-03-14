@@ -57,6 +57,7 @@ func OrderStateHandler(localIP string,
 						case STATE_none:
 							if *local_state == STATE_confirmed {
 								*local_state = STATE_none
+								elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, false)
 								reqStateMatrixUpdated = true
 							}
 						case STATE_new:
@@ -70,6 +71,7 @@ func OrderStateHandler(localIP string,
 
 							if *local_state == STATE_new {
 								*local_state = STATE_confirmed
+								elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true)
 								reqStateMatrixUpdated = true
 							}
 						}

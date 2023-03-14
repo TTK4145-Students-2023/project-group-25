@@ -32,6 +32,7 @@ func OrderAssigner(localIP string,
 	for {
 		select {
 		case assignerBehaviour = <-masterSlaveRoleChan:
+			fmt.Printf("You are now %s! \n", string(assignerBehaviour))
 		case input := <-ordersFromDistributor:
 			switch assignerBehaviour {
 			case dt.MS_Slave:
