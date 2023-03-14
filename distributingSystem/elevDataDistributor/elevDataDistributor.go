@@ -1,6 +1,7 @@
 package elevDataDistributor
 
 import (
+	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 )
@@ -28,17 +29,11 @@ func DataDistributor(localIP string,
 	for {
 		select {
 		case peerList = <-peerUpdateChan:
-			// Initilize new nodes
-			for _, nodeID := range peerList.Peers {
-				if _, valInMap := Local_DataMatrix[nodeID]; !valInMap {
-					Local_DataMatrix[nodeID] = dt.ElevDataJSON{}
-				}
-			}
 		case DataFromP2P := <-allElevData_fromP2P:
-			// fmt.Printf("______WW recived from P2P__________\n")
-			// fmt.Printf("Sender ID: %v\n", DataFromP2P.ID)
-			// fmt.Printf("Data: %v\n", DataFromP2P.AllData)
-			// fmt.Printf("_________________________\n")
+			fmt.Printf("______WW recived from P2P__________\n")
+			fmt.Printf("Sender ID: %v\n", DataFromP2P.ID)
+			fmt.Printf("Data: %v\n", DataFromP2P.AllData)
+			fmt.Printf("_________________________\n")
 
 			recivedID := DataFromP2P.ID
 			recivedData := DataFromP2P.AllData[recivedID]
@@ -49,24 +44,26 @@ func DataDistributor(localIP string,
 			Local_DataMatrix[localIP] = localData
 
 		case orders := <-HallOrderArray:
+
 			data_aliveNodes := make(dt.AllElevDataJSON)
 			for _, nodeID := range peerList.Peers {
-				data_aliveNodes[nodeID] = Local_withID.AllData[nodeID]
+				if Local_withID.AllData[nodeID] != (dt.ElevDataJSON{}) {
+					data_aliveNodes[nodeID] = Local_withID.AllData[nodeID]
+				}
 			}
-
-			currentWorldView := dt.CostFuncInput{
-				HallRequests: orders,
-				States:       data_aliveNodes,
+			if len(data_aliveNodes) != 0 {
+				currentWorldView := dt.CostFuncInput{
+					HallRequests: orders,
+					States:       data_aliveNodes,
+				}
+				WorldView_toAssigner <- currentWorldView
 			}
-
-			WorldView_toAssigner <- currentWorldView
-
 		}
 		allElevData_toP2P <- Local_withID
-		// fmt.Printf("______WW sendt to P2P__________\n")
-		// fmt.Printf("Sender ID: %v\n", Local_withID.ID)
-		// fmt.Printf("Data: %v\n", Local_withID.AllData)
-		// fmt.Printf("_________________________\n")
+		fmt.Printf("______WW sendt to P2P__________\n")
+		fmt.Printf("Sender ID: %v\n", Local_withID.ID)
+		fmt.Printf("Data: %v\n", Local_withID.AllData)
+		fmt.Printf("_________________________\n")
 
 	}
 }
