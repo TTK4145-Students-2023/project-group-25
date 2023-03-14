@@ -97,13 +97,12 @@ func OrderStateHandler(localIP string,
 				if btn.Button == elevio.BT_Cab {
 					continue
 				}
-
-				local_State := Local_ReqStatMatrix[localIP][btn.Floor][btn.Button]
+				local_State := &Local_ReqStatMatrix[localIP][btn.Floor][btn.Button]
 				// Kva skjer her dersom order blir executed før state_confirmed?
-				if local_State == STATE_confirmed {
-					Local_ReqStatMatrix[localIP][btn.Floor][btn.Button] = STATE_none
+				if *local_State == STATE_confirmed {
+					*local_State = STATE_none
 					reqStateMatrixUpdated = true
-					elevio.SetButtonLamp(btn.Button, btn.Floor, false) //turn off light?
+					elevio.SetButtonLamp(btn.Button, btn.Floor, false)
 				}
 			}
 		}

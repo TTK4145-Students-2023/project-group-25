@@ -40,19 +40,19 @@ func OrderAssigner(localIP string,
 				jsonBytes, err := json.Marshal(input)
 				if err != nil {
 					fmt.Println("json.Marshal error: ", err)
-					return
+					break
 				}
 				ret, err := exec.Command(hraExecutable, "-i", string(jsonBytes)).CombinedOutput()
 				if err != nil {
 					fmt.Println("exec.Command error: ", err)
 					fmt.Println(string(ret))
-					return
+					break
 				}
 				output := map[string][][2]bool{}
 				err = json.Unmarshal(ret, &output)
 				if err != nil {
 					fmt.Println("json.Unmarshal error: ", err)
-					return
+					break
 				}
 				if localHallOrders, ok := output[localIP]; ok {
 					localOrders <- localHallOrders
