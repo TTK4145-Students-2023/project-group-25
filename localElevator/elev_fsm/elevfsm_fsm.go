@@ -178,8 +178,10 @@ func FSM(
 				elevio.SetButtonLamp(elevio.BT_Cab, e.Floor, false)
 
 				hallOrdersExecuted := requests_getHallOrdersExecuted(e)
-				e = requests_clearLocalHallRequest(e, hallOrdersExecuted)
-				handler_hallOrdersExecuted <- hallOrdersExecuted
+				if len(hallOrdersExecuted) > 0 {
+					e = requests_clearLocalHallRequest(e, hallOrdersExecuted)
+					handler_hallOrdersExecuted <- hallOrdersExecuted
+				}
 
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
