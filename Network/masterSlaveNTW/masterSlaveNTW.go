@@ -3,61 +3,59 @@ package masterSlaveNTW
 import (
 	"fmt"
 	"project/Network/Utilities/bcast"
-	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
+	"reflect"
+	"time"
 )
 
 // datatypes
 type AssignedOrders map[string][]bool
 
-func MasterSlaveNTW(
+const BROADCAST_FREQ = 100 //ms
 
-	// Receive channels
-	peerUpdate_MS chan peers.PeerUpdate,
-	inputOrders_fromAss chan []byte,
-	// Sending channels
-
-	outputOrders_toAss chan []byte,
-	masterOrSlave chan dt.MasterSlaveRole,
+func MasterSlaveNTW(localIP string,
+	peerUpdateChan chan peers.PeerUpdate,
+	ordersToSlavesChan <-chan map[string][dt.N_FLOORS][2]bool,
+	ordersFromMasterChan chan<- map[string][dt.N_FLOORS][2]bool,
+	masterOrSlaveChan chan dt.MasterSlaveRole,
 ) {
 	var (
-		inputOrders_fromNTW = make(chan []byte)
-		outputOrders_toNTW  = make(chan []byte)
+		receiveOrdersChan   = make(chan map[string][dt.N_FLOORS][2]bool)
+		transmittOrdersChan = make(chan map[string][dt.N_FLOORS][2]bool)
 	)
 
-	localIP, _ := localip.LocalIP()
+	go bcast.Receiver(15660, receiveOrdersChan)
+	go bcast.Transmitter(15660, transmittOrdersChan)
 
-	// Receive from NTW
-	go bcast.Receiver(15640, inputOrders_fromNTW)
-
-	// Send on NTW
-	go bcast.Transmitter(15640, outputOrders_toNTW)
-
-	Local_MS_role := dt.MS_Slave
+	timer := time.NewTimer(BROADCAST_FREQ * time.Millisecond)
+	MS_role := dt.MS_Slave
+	ordersToSlaves := map[string][dt.N_FLOORS][2]bool{}
+	ordersFromMaster := map[string][dt.N_FLOORS][2]bool{}
 
 	for {
 		select {
-		case peerList := <-peerUpdate_MS:
-			//update local MS_role
-			fmt.Printf("_____PEER LIST______\n  %s\n", peerList)
-			Local_MS_role = MS_Assigner(localIP, peerList.Peers)
-			fmt.Printf("_____MS ROLE______\n  %s\n", Local_MS_role)
-			masterOrSlave <- Local_MS_role
-			fmt.Printf("_____MS IS ASSIGNED______\n  %s\n", Local_MS_role)
-			//send peerlsit to other?
-		case ordersFromNTW := <-inputOrders_fromNTW:
-			switch Local_MS_role {
-			case dt.MS_Master:
-			case dt.MS_Slave:
-				outputOrders_toAss <- ordersFromNTW
+		case peerUpdate := <-peerUpdateChan:
+			if newRole := MS_Assigner(localIP, peerUpdate.Peers); newRole != MS_role {
+				MS_role = newRole
+				masterOrSlaveChan <- MS_role
 			}
-		case ordersFromAss := <-inputOrders_fromAss:
-			switch Local_MS_role {
+		case ordersToSlaves = <-ordersToSlavesChan:
+		case newOrdersFromMaster := <-receiveOrdersChan:
+			if !reflect.DeepEqual(newOrdersFromMaster, ordersFromMaster) {
+				ordersFromMaster = newOrdersFromMaster
+				switch MS_role {
+			case dt.MS_Master:
+			case dt.MS_Slave:
+					ordersFromMasterChan <- ordersFromMaster
+			}
+			}
+		case <-timer.C:
+			switch MS_role {
 			case dt.MS_Slave:
 			case dt.MS_Master:
-				outputOrders_toNTW <- ordersFromAss
-
+				transmittOrdersChan <- ordersToSlaves
+				timer.Reset(BROADCAST_FREQ * time.Millisecond)
 			}
 		}
 	}

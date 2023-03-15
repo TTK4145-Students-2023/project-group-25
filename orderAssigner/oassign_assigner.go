@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"project/Network/Utilities/localip"
 	dt "project/commonDataTypes"
 	"runtime"
 )
@@ -12,11 +11,12 @@ import (
 // Struct members must be public in order to be accessible by json.Marshal/.Unmarshal
 // This means they must start with a capital letter, so we need to use field renaming struct tags to make them camelCase
 
-func OrderAssigner(masterSlaveRoleChan <-chan dt.MasterSlaveRole,
+func OrderAssigner(localIP string,
+	masterSlaveRoleChan <-chan dt.MasterSlaveRole,
 	ordersFromDistributor <-chan dt.CostFuncInput, // Input from order distributor
-	ordersFromMaster <-chan []byte, // Input read from Master-Slave network module
-	ordersToSlaves chan<- []byte, // Input written to Master-Slave network module
-	localOrders chan<- [][2]bool) { // Input to local Elevator FSM
+	ordersFromMaster <-chan map[string][dt.N_FLOORS][2]bool, // Input read from Master-Slave network module
+	ordersToSlaves chan<- map[string][dt.N_FLOORS][2]bool, // Input written to Master-Slave network module
+	localOrders chan<- [dt.N_FLOORS][2]bool) { // Input to local Elevator FSM
 
 	hraExecutable := ""
 	switch runtime.GOOS {
@@ -28,54 +28,49 @@ func OrderAssigner(masterSlaveRoleChan <-chan dt.MasterSlaveRole,
 		panic("OS not supported")
 	}
 
-	localIpAdress, _ := localip.LocalIP()
-
 	assignerBehaviour := dt.MS_Slave
 	for {
 		select {
 		case assignerBehaviour = <-masterSlaveRoleChan:
-			fmt.Printf("We are now the %s\n", string(assignerBehaviour))
+			fmt.Printf("You are now %s! \n", string(assignerBehaviour))
 		case input := <-ordersFromDistributor:
-			fmt.Printf("We have recieved data from Distributor\n")
 			switch assignerBehaviour {
 			case dt.MS_Slave:
 			case dt.MS_Master:
 				jsonBytes, err := json.Marshal(input)
 				if err != nil {
 					fmt.Println("json.Marshal error: ", err)
-					return
+					break
 				}
 				ret, err := exec.Command(hraExecutable, "-i", string(jsonBytes)).CombinedOutput()
 				if err != nil {
 					fmt.Println("exec.Command error: ", err)
 					fmt.Println(string(ret))
-					return
+					break
 				}
-				output := map[string][][2]bool{}
+				output := map[string][dt.N_FLOORS][2]bool{}
 				err = json.Unmarshal(ret, &output)
 				if err != nil {
 					fmt.Println("json.Unmarshal error: ", err)
-					return
+					break
 				}
-				if localHallOrders, ok := output[localIpAdress]; ok {
+				if localHallOrders, ok := output[localIP]; ok {
+					fmt.Printf("OASSIGN, deadlock 1! ")
 					localOrders <- localHallOrders
+					fmt.Printf("... kidding, no OASSIGN deadlock 1...\n ")
 				}
-				fmt.Printf("Sending and ... ")
-				ordersToSlaves <- ret
-				fmt.Printf("...sendt! Data to slave\n\n")
+				fmt.Printf("OASSIGN, deadlock 2! ")
+				ordersToSlaves <- output
+				fmt.Printf("... kidding, no OASSIGN deadlock 2...\n ")
 			}
-		case input := <-ordersFromMaster:
+		case newOrders := <-ordersFromMaster:
 			switch assignerBehaviour {
 			case dt.MS_Master:
 			case dt.MS_Slave:
-				output := map[string][][2]bool{}
-				err := json.Unmarshal(input, &output)
-				if err != nil {
-					fmt.Println("json.Unmarshal error: ", err)
-					return
-				}
-				if localHallOrders, ok := output[localIpAdress]; ok {
+				if localHallOrders, ok := newOrders[localIP]; ok {
+					fmt.Printf("OASSIGN, deadlock 3! ")
 					localOrders <- localHallOrders
+					fmt.Printf("... kidding, no OASSIGN deadlock 3...\n ")
 				}
 			}
 		}

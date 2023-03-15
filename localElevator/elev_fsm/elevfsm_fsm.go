@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-const (
-	N_FLOORS  = 4
-	N_BUTTONS = 3
-)
-
 type ClearRequestVariant int
 
 const (
@@ -45,8 +40,8 @@ type DirnBehaviourPair struct {
 type Elevator struct {
 	Floor        int
 	Dirn         elevio.MotorDirection
-	CabRequests  []bool
-	HallRequests [][2]bool
+	CabRequests  [dt.N_FLOORS]bool
+	HallRequests [dt.N_FLOORS][2]bool
 	Behaviour    ElevatorBehaviour
 	Config       ElevatorConfig
 }
@@ -64,28 +59,23 @@ func getElevatorData(e Elevator) dt.ElevDataJSON {
 		CabRequests: e.CabRequests}
 }
 
-func uninitializedElevator() Elevator {
-	return Elevator{
-		Floor:        -1,
-		Dirn:         elevio.MD_Stop,
-		CabRequests:  []bool{false, false, false, false},
-		HallRequests: [][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
-		Behaviour:    EB_Idle,
-		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3},
-	}
-}
-
 func FSM(
-	floor_hallRequests <-chan [][2]bool,
+	floor_hallRequests <-chan [dt.N_FLOORS][2]bool,
 	floor_cabButtonEvent <-chan elevio.ButtonEvent,
 	drv_floors <-chan int,
 	drv_obstr <-chan bool,
 	elev_data chan<- dt.ElevDataJSON,
 	handler_hallOrdersExecuted chan<- []elevio.ButtonEvent) {
 
-	e := uninitializedElevator()
 	obstr := false
-	timeout := make(chan bool)
+	e := Elevator{
+		Floor:        -1,
+		Dirn:         elevio.MD_Stop,
+		CabRequests:  [dt.N_FLOORS]bool{false, false, false, false},
+		HallRequests: [dt.N_FLOORS][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
+		Behaviour:    EB_Idle,
+		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3 * time.Second},
+	}
 
 	go elevtimer.TimerMain(timeout)
 
@@ -183,8 +173,10 @@ func FSM(
 				elevio.SetButtonLamp(elevio.BT_Cab, e.Floor, false)
 
 				hallOrdersExecuted := requests_getHallOrdersExecuted(e)
+				if len(hallOrdersExecuted) > 0 {
 				e = requests_clearLocalHallRequest(e, hallOrdersExecuted)
 				handler_hallOrdersExecuted <- hallOrdersExecuted
+				}
 
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {

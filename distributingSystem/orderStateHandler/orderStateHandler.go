@@ -2,7 +2,6 @@ package orderStateHandler
 
 import (
 	"fmt"
-	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
@@ -15,97 +14,85 @@ const (
 	STATE_confirmed dt.RequestState = 2
 )
 
-func OrderStateHandler(
-	ReqStateMatrix_fromP2P <-chan dt.RequestStateMatrix,
+func OrderStateHandler(localIP string,
+	ReqStateMatrix_fromP2P <-chan dt.RequestStateMatrix_with_ID,
 	HallBtnPress <-chan elevio.ButtonEvent,
 	orderExecuted <-chan []elevio.ButtonEvent,
-	HallOrderArray chan<- [][2]bool,
+	HallOrderArray chan<- [dt.N_FLOORS][2]bool,
 	ReqStateMatrix_toP2P chan<- dt.RequestStateMatrix,
 	peerUpdateChan <-chan peers.PeerUpdate,
 ) {
 
-	localIpAdress, _ := localip.LocalIP()
-	//init local RequestStateMatrix
 	Local_ReqStatMatrix := make(dt.RequestStateMatrix)
-	// Local_ReqStatMatrix[localIpAdress] = dt.SingleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
-
-	// List of node IDs we are connected to
-	peerList := peers.PeerUpdate{} // peerList := []string{localIpAdress}
+	peerList := peers.PeerUpdate{}
 
 	for {
 		select {
 		case peerList = <-peerUpdateChan:
-			// Initilize new nodes
 			for _, nodeID := range peerList.Peers {
 				if _, valInMap := Local_ReqStatMatrix[nodeID]; !valInMap {
 					Local_ReqStatMatrix[nodeID] = dt.SingleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
 				}
 			}
-
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
-
-			fmt.Printf("\n___ORDERSTATEHANDLER___ \n Input recived from P2P \n%+v\n", matrix_fromP2P)
-
+			// update external states based on sender ID
+			Local_ReqStatMatrix[matrix_fromP2P.IpAdress] = matrix_fromP2P.RequestMatrix[matrix_fromP2P.IpAdress]
 			// Iterate through the list of node IDs
 			for _, nodeID := range peerList.Peers {
 				// Skip the local node
-				if nodeID == localIpAdress {
+				if nodeID == localIP {
 					continue
 				}
 				// Compare the requestStates from the other nodes with the Local requestStates
-				for floor := range matrix_fromP2P[nodeID] {
-					for btn_UpDown, other_state := range matrix_fromP2P[nodeID][floor] {
+				for floor := range matrix_fromP2P.RequestMatrix[nodeID] {
+					for btn_UpDown, other_state := range matrix_fromP2P.RequestMatrix[nodeID][floor] {
 
-						local_state := &Local_ReqStatMatrix[localIpAdress][floor][btn_UpDown]
-
+						localStateArray := Local_ReqStatMatrix[localIP]
 						//cyclic change of states
 						switch other_state {
 						case STATE_none:
-							if *local_state == STATE_confirmed {
-								*local_state = STATE_none
+							if localStateArray[floor][btn_UpDown] == STATE_confirmed {
+								localStateArray[floor][btn_UpDown] = STATE_none
+								Local_ReqStatMatrix[localIP] = localStateArray
 							}
 						case STATE_new:
-							if *local_state == STATE_none {
-								*local_state = STATE_new
+							if localStateArray[floor][btn_UpDown] == STATE_none {
+								localStateArray[floor][btn_UpDown] = STATE_new
+								Local_ReqStatMatrix[localIP] = localStateArray
 							}
 						case STATE_confirmed:
-							if *local_state == STATE_new {
-								*local_state = STATE_confirmed
+							if localStateArray[floor][btn_UpDown] == STATE_new {
+								localStateArray[floor][btn_UpDown] = STATE_confirmed
+								Local_ReqStatMatrix[localIP] = localStateArray
 							}
 						}
 					}
 				}
 			}
-
-			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-
 		case BtnPress := <-HallBtnPress:
-			fmt.Printf("\n___ORDERSTATEHANDLER___: \n Buttnpress recieved: \n%+v\n", BtnPress)
-			Local_ReqStatMatrix[localIpAdress][BtnPress.Floor][BtnPress.Button] = STATE_new
-
+			localStateArray := Local_ReqStatMatrix[localIP]
+			if localStateArray[BtnPress.Floor][BtnPress.Button] == STATE_none {
+				localStateArray[BtnPress.Floor][BtnPress.Button] = STATE_new
+				Local_ReqStatMatrix[localIP] = localStateArray
+			}
 		case executedArray := <-orderExecuted:
-			fmt.Printf("\n___ORDERSTATEHANDLER___: \n  ExecutedArray Received \n%+v\n", executedArray)
-
 			for _, btn := range executedArray {
 				if btn.Button == elevio.BT_Cab {
 					continue
 				}
-
-				local_State := Local_ReqStatMatrix[localIpAdress][btn.Floor][btn.Button]
-				if local_State == STATE_confirmed {
-					Local_ReqStatMatrix[localIpAdress][btn.Floor][btn.Button] = STATE_none
-					elevio.SetButtonLamp(btn.Button, btn.Floor, false) //turn off light?
+				localStateArray := Local_ReqStatMatrix[localIP]
+				if localStateArray[btn.Floor][btn.Button] == STATE_confirmed {
+					localStateArray[btn.Floor][btn.Button] = STATE_none
+					Local_ReqStatMatrix[localIP] = localStateArray
 				}
-
 			}
-
 		}
 		//Check if Order can be confirmed
-		// If all orders across IDs is State_new, order is confirmed and sendt to order Assigner
-		for floor := range Local_ReqStatMatrix[localIpAdress] {
-			for btn_UpDown := range Local_ReqStatMatrix[localIpAdress][floor] {
+		//If all orders across IDs is State_new, order is confirmed and sendt to order Assigner
+		for floor, floorStateArray := range Local_ReqStatMatrix[localIP] {
+			for btn_UpDown := range floorStateArray {
 
-				if Local_ReqStatMatrix[localIpAdress][floor][btn_UpDown] != STATE_new {
+				if floorStateArray[btn_UpDown] != STATE_new {
 					continue
 				}
 
@@ -118,20 +105,23 @@ func OrderStateHandler(
 				}
 
 				if NewOrder_OnAll_IDs {
-					Local_ReqStatMatrix[localIpAdress][floor][btn_UpDown] = STATE_confirmed
+					localStateArray := Local_ReqStatMatrix[localIP]
+					localStateArray[floor][btn_UpDown] = STATE_confirmed
+					Local_ReqStatMatrix[localIP] = localStateArray
 					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true) //turn on light?
-					HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIpAdress)
-					fmt.Printf("\n___ORDERSTATEHANDLER___: \n Hallorders sendt to DataDist: \n%+v\n", ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIpAdress))
-
 				}
 			}
+		}
+		if reqStateMatrixUpdated {
+			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
+			HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP)
 		}
 	}
 }
 
-func ConfirmedOrdersToHallOrder(requests dt.RequestStateMatrix, localID string) [][2]bool {
+func ConfirmedOrdersToHallOrder(requests dt.RequestStateMatrix, localID string) [dt.N_FLOORS][2]bool {
 
-	Local_HallOrderArray := [][2]bool{{false, false}, {false, false}, {false, false}, {false, false}}
+	Local_HallOrderArray := [dt.N_FLOORS][2]bool{{false, false}, {false, false}, {false, false}, {false, false}}
 
 	for floor := range requests[localID] {
 		for btn_UpDown := range requests[localID][floor] {

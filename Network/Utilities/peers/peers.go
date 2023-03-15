@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"project/Network/Utilities/conn"
-	"project/Network/Utilities/localip"
 	"sort"
 	"time"
 )
@@ -18,22 +17,44 @@ type PeerUpdate struct {
 const interval = 15 * time.Millisecond
 const timeout = 500 * time.Millisecond
 
-func PeerListHandler(peerUpdate_MS chan<- PeerUpdate,
+func PeerListHandler(localIP string,
+	peerUpdate_MS chan<- PeerUpdate,
 	peerUpdate_DataDistributor chan<- PeerUpdate,
 	peerUpdate_OrderHandler chan<- PeerUpdate,
 ) {
-	localIP, _ := localip.LocalIP()
 	peerUpdateCh := make(chan PeerUpdate) // channel for receiving updates on the id of the peers that are alive on the network
 	peerTxEnable := make(chan bool)       // disable/enable the transmitter after started
 
-	go Transmitter(15649, localIP, peerTxEnable)
-	go Receiver(15649, peerUpdateCh)
+	go Transmitter(15669, localIP, peerTxEnable)
+	go Receiver(15669, peerUpdateCh)
 
 	for {
 		peerList := <-peerUpdateCh
-		peerUpdate_MS <- peerList
-		peerUpdate_DataDistributor <- peerList
-		peerUpdate_OrderHandler <- peerList
+		peerListSendt := [3]bool{false, false, false}
+		for peerListSendt != [3]bool{true, true, true} {
+			if !peerListSendt[0] {
+				select {
+				case peerUpdate_MS <- peerList:
+					peerListSendt[0] = true
+				default:
+				}
+			}
+			if !peerListSendt[1] {
+				select {
+				case peerUpdate_DataDistributor <- peerList:
+					peerListSendt[1] = true
+				default:
+				}
+			}
+
+			if !peerListSendt[2] {
+				select {
+				case peerUpdate_OrderHandler <- peerList:
+					peerListSendt[2] = true
+				default:
+				}
+			}
+		}
 	}
 }
 

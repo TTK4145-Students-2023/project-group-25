@@ -2,6 +2,7 @@ package elevtest
 
 import (
 	"fmt"
+	"project/Network/Utilities/localip"
 	btnassign "project/buttonAssigner"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
@@ -17,13 +18,13 @@ func intermediateOrderDistributor(
 	ordersFromDistributor chan<- dt.CostFuncInput) {
 
 	orderOverview := dt.CostFuncInput{
-		HallRequests: [][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
+		HallRequests: [dt.N_FLOORS][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
 		States: map[string]dt.ElevDataJSON{
 			"127.0.0.1": {
 				Behavior:    "idle",
 				Floor:       2,
 				Direction:   "stop",
-				CabRequests: []bool{false, false, false, false},
+				CabRequests: [dt.N_FLOORS]bool{false, false, false, false},
 			},
 		},
 	}
@@ -37,7 +38,7 @@ func intermediateOrderDistributor(
 
 		case hallOrdersExecuted := <-handler_hallOrdersExecuted:
 			fmt.Printf("OrderExecute.\n")
-			for i := 0; i < len(hallOrdersExecuted); i++ {
+			for i := range hallOrdersExecuted {
 				if hallOrdersExecuted[i].Button != elevio.BT_Cab {
 					orderOverview.HallRequests[hallOrdersExecuted[i].Floor][hallOrdersExecuted[i].Button] = false
 					elevio.SetButtonLamp(hallOrdersExecuted[i].Button, hallOrdersExecuted[i].Floor, false)
@@ -65,10 +66,10 @@ func testSpecDistributor(OrderAssignerBehaviourChan chan dt.MasterSlaveRole) {
 var (
 	OrderAssignerBehaviourChan = make(chan dt.MasterSlaveRole)
 
-	ordersFromDistributor      = make(chan dt.CostFuncInput) // Input from order distributor
-	ordersFromMaster           = make(chan []byte)           // Input read from Master-Slave network module
-	ordersToSlaves             = make(chan []byte)           // Input written to Master-Slave network module
-	ordersLocal                = make(chan [][2]bool)
+	ordersFromDistributor      = make(chan dt.CostFuncInput)                // Input from order distributor
+	ordersFromMaster           = make(chan map[string][dt.N_FLOORS][2]bool) // Input read from Master-Slave network module
+	ordersToSlaves             = make(chan map[string][dt.N_FLOORS][2]bool) // Input written to Master-Slave network module
+	ordersLocal                = make(chan [dt.N_FLOORS][2]bool)
 	handler_hallOrdersExecuted = make(chan []elevio.ButtonEvent)
 
 	btnEvent  = make(chan elevio.ButtonEvent)
@@ -81,7 +82,8 @@ var (
 )
 
 func RunSingleElevTest() {
-	elevio.Init("localhost:15657", elevfsm.N_FLOORS)
+	localIP, _ := localip.LocalIP()
+	elevio.Init("localhost:15657", dt.N_FLOORS)
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(btnEvent)
 	go elevio.PollObstructionSwitch(drv_obstr)
@@ -94,7 +96,8 @@ func RunSingleElevTest() {
 		ordersFromDistributor)
 
 	go testSpecDistributor(OrderAssignerBehaviourChan)
-	go oassign.OrderAssigner(OrderAssignerBehaviourChan,
+	go oassign.OrderAssigner(localIP,
+		OrderAssignerBehaviourChan,
 		ordersFromDistributor,
 		ordersFromMaster,
 		ordersToSlaves,

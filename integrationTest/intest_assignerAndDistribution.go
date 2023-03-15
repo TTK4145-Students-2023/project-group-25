@@ -1,6 +1,7 @@
 package intest
 
 import (
+	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
 	btnassign "project/buttonAssigner"
 	dt "project/commonDataTypes"
@@ -23,10 +24,10 @@ func testSpecDistributor(masterSlaveRoleChan chan dt.MasterSlaveRole) {
 var (
 	masterSlaveRoleChan = make(chan dt.MasterSlaveRole)
 
-	ordersFromDistributor      = make(chan dt.CostFuncInput) // Input from order distributor
-	ordersFromMaster           = make(chan []byte)           // Input read from Master-Slave network module
-	ordersToSlaves             = make(chan []byte)           // Input written to Master-Slave network module
-	ordersLocal                = make(chan [][2]bool)
+	ordersFromDistributor      = make(chan dt.CostFuncInput)                // Input from order distributor
+	ordersFromMaster           = make(chan map[string][dt.N_FLOORS][2]bool) // Input read from Master-Slave network module
+	ordersToSlaves             = make(chan map[string][dt.N_FLOORS][2]bool) // Input written to Master-Slave network module
+	ordersLocal                = make(chan [dt.N_FLOORS][2]bool)
 	handler_hallOrdersExecuted = make(chan []elevio.ButtonEvent)
 	peerUpdate_DataDistributor = make(chan peers.PeerUpdate)
 	peerUpdate_OrderHandler    = make(chan peers.PeerUpdate)
@@ -40,8 +41,8 @@ var (
 	elev_data  = make(chan dt.ElevDataJSON)
 
 	//orderStateHandler channels
-	ReqStateMatrix_fromP2P = make(chan dt.RequestStateMatrix)
-	HallOrderArray         = make(chan [][2]bool)
+	ReqStateMatrix_fromP2P = make(chan dt.RequestStateMatrix_with_ID)
+	HallOrderArray         = make(chan [dt.N_FLOORS][2]bool)
 	ReqStateMatrix_toP2P   = make(chan dt.RequestStateMatrix)
 
 	// Data distributor channels
@@ -50,7 +51,8 @@ var (
 )
 
 func RunAssignerAndDistributionIntegrationTest() {
-	elevio.Init("localhost:15657", elevfsm.N_FLOORS)
+	localIP, _ := localip.LocalIP()
+	elevio.Init("localhost:15657", dt.N_FLOORS)
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(btnEvent)
 	go elevio.PollObstructionSwitch(drv_obstr)
@@ -59,20 +61,23 @@ func RunAssignerAndDistributionIntegrationTest() {
 
 	// Order assigner
 	go testSpecDistributor(masterSlaveRoleChan)
-	go oassign.OrderAssigner(masterSlaveRoleChan,
+	go oassign.OrderAssigner(localIP,
+		masterSlaveRoleChan,
 		ordersFromDistributor,
 		ordersFromMaster,
 		ordersToSlaves,
 		ordersLocal)
 
 	// DistributingSystem
-	go elevDataDistributor.DataDistributor(allElevData_fromP2P,
+	go elevDataDistributor.DataDistributor(localIP,
+		allElevData_fromP2P,
 		elev_data,
 		HallOrderArray,
 		allElevData_toP2P,
 		ordersFromDistributor,
 		peerUpdate_DataDistributor)
-	go orderStateHandler.OrderStateHandler(ReqStateMatrix_fromP2P,
+	go orderStateHandler.OrderStateHandler(localIP,
+		ReqStateMatrix_fromP2P,
 		hallEvent,
 		handler_hallOrdersExecuted,
 		HallOrderArray,

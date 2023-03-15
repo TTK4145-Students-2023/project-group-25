@@ -3,15 +3,20 @@ package dt
 type MasterSlaveRole string
 
 const (
+	N_FLOORS  = 4
+	N_BUTTONS = 3
+)
+
+const (
 	MS_Master MasterSlaveRole = "master"
 	MS_Slave  MasterSlaveRole = "slave"
 )
 
 type ElevDataJSON struct {
-	Behavior    string `json:"behaviour"`
-	Floor       int    `json:"floor"`
-	Direction   string `json:"direction"`
-	CabRequests []bool `json:"cabRequests"`
+	Behavior    string         `json:"behaviour"`
+	Floor       int            `json:"floor"`
+	Direction   string         `json:"direction"`
+	CabRequests [N_FLOORS]bool `json:"cabRequests"`
 }
 
 type AllElevDataJSON map[string]ElevDataJSON
@@ -22,13 +27,13 @@ type AllElevDataJSON_withID struct {
 }
 
 type CostFuncInput struct {
-	HallRequests [][2]bool       `json:"hallRequests"`
-	States       AllElevDataJSON `json:"states"`
+	HallRequests [N_FLOORS][2]bool `json:"hallRequests"`
+	States       AllElevDataJSON   `json:"states"`
 }
 
 type RequestState int
 
-type SingleNode_requestStates [][2]RequestState
+type SingleNode_requestStates [N_FLOORS][2]RequestState
 
 type RequestStateMatrix map[string]SingleNode_requestStates
 

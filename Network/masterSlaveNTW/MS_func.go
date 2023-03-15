@@ -28,7 +28,7 @@ func MS_Assigner(localIP string, P2P_IP []string) dt.MasterSlaveRole {
 	ipLocalLastByteInt, _ := strconv.Atoi(localIPArr[len(localIPArr)-1])
 
 	var ipP2PintArray []int
-	for i := 0; i < len(P2P_IP); i++ {
+	for i := range P2P_IP {
 		ipLastByteString := strings.Split(P2P_IP[i], ".")
 		ipLastByteInt, _ := strconv.Atoi(ipLastByteString[len(ipLastByteString)-1])
 		ipP2PintArray = append(ipP2PintArray, ipLastByteInt)
