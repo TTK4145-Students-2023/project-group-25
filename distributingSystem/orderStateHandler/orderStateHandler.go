@@ -27,11 +27,13 @@ func OrderStateHandler(localIP string,
 	peerList := peers.PeerUpdate{}
 
 	for {
+		reqStateMatrixUpdated := false
 		select {
 		case peerList = <-peerUpdateChan:
 			for _, nodeID := range peerList.Peers {
 				if _, valInMap := Local_ReqStatMatrix[nodeID]; !valInMap {
 					Local_ReqStatMatrix[nodeID] = dt.SingleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
+					reqStateMatrixUpdated = true
 				}
 			}
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
@@ -54,16 +56,21 @@ func OrderStateHandler(localIP string,
 							if localStateArray[floor][btn_UpDown] == STATE_confirmed {
 								localStateArray[floor][btn_UpDown] = STATE_none
 								Local_ReqStatMatrix[localIP] = localStateArray
+								elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, false)
+								reqStateMatrixUpdated = true
 							}
 						case STATE_new:
 							if localStateArray[floor][btn_UpDown] == STATE_none {
 								localStateArray[floor][btn_UpDown] = STATE_new
 								Local_ReqStatMatrix[localIP] = localStateArray
+								reqStateMatrixUpdated = true
 							}
 						case STATE_confirmed:
 							if localStateArray[floor][btn_UpDown] == STATE_new {
 								localStateArray[floor][btn_UpDown] = STATE_confirmed
 								Local_ReqStatMatrix[localIP] = localStateArray
+								elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true)
+								reqStateMatrixUpdated = true
 							}
 						}
 					}
@@ -74,6 +81,7 @@ func OrderStateHandler(localIP string,
 			if localStateArray[BtnPress.Floor][BtnPress.Button] == STATE_none {
 				localStateArray[BtnPress.Floor][BtnPress.Button] = STATE_new
 				Local_ReqStatMatrix[localIP] = localStateArray
+				reqStateMatrixUpdated = true
 			}
 		case executedArray := <-orderExecuted:
 			for _, btn := range executedArray {
@@ -84,6 +92,8 @@ func OrderStateHandler(localIP string,
 				if localStateArray[btn.Floor][btn.Button] == STATE_confirmed {
 					localStateArray[btn.Floor][btn.Button] = STATE_none
 					Local_ReqStatMatrix[localIP] = localStateArray
+					reqStateMatrixUpdated = true
+					elevio.SetButtonLamp(btn.Button, btn.Floor, false)
 				}
 			}
 		}
@@ -108,6 +118,7 @@ func OrderStateHandler(localIP string,
 					localStateArray := Local_ReqStatMatrix[localIP]
 					localStateArray[floor][btn_UpDown] = STATE_confirmed
 					Local_ReqStatMatrix[localIP] = localStateArray
+					reqStateMatrixUpdated = true
 					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true) //turn on light?
 				}
 			}
