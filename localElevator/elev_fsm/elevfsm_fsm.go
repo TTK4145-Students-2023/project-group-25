@@ -152,11 +152,11 @@ func FSM(
 			case EB_Idle:
 			case EB_DoorOpen:
 			case EB_Moving:
+				elevDataTimer.Reset(1)
 				if requests_shouldStop(e) {
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					e.Behaviour = EB_DoorOpen
-					elevDataTimer.Reset(1)
 					if !obstr {
 						ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 					}

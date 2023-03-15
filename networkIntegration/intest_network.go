@@ -49,6 +49,12 @@ func RunNetworkWithAllTest() {
 	localIP, _ := localip.LocalIP()
 	elevio.Init("localhost:15657", dt.N_FLOORS)
 
+	for floor := 0; floor < dt.N_FLOORS; floor++ {
+		for button := 0; button < dt.N_BUTTONS; button++ {
+			elevio.SetButtonLamp(elevio.ButtonType(button), floor, false)
+		}
+	}
+
 	//elvio
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(btnEvent)
