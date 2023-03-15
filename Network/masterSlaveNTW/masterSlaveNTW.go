@@ -51,7 +51,6 @@ func MasterSlaveNTW(localIP string,
 				case dt.MS_Slave:
 					fmt.Printf("MS, deadlock 2! ")
 					ordersFromMasterChan <- ordersFromMaster
-					fmt.Printf("... kidding, no MS deadlock 2...\n ")
 				}
 			}
 		case <-timer.C:
