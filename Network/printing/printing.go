@@ -13,7 +13,7 @@ const (
 	STATE_confirmed dt.RequestState = 2
 )
 
-func WW_toString(WW dt.CostFuncInput) string {
+func WW_toString(WW dt.AllElevDataJSON) string {
 	// Create the separator row
 	separatorRow := "-------------------------------------------------------------------------------------------------------\n"
 	text := "####################################################################################################\n"
@@ -27,7 +27,7 @@ func WW_toString(WW dt.CostFuncInput) string {
 	text += separatorRow
 
 	// Print each elevator's data.
-	for id, elevData := range WW.States {
+	for id, elevData := range WW {
 		text = text + fmt.Sprintf("%-*s | %-*s | %-*d | %-*s | %v\n",
 			ColLen, id,
 			ColLen, elevData.Behavior,
@@ -36,8 +36,8 @@ func WW_toString(WW dt.CostFuncInput) string {
 			elevData.CabRequests)
 	}
 	text += separatorRow
-	text = text + fmt.Sprintf("\nHallrequest: %v \n", WW.HallRequests)
-	text += separatorRow
+	// text = text + fmt.Sprintf("\nHallrequest: %v \n", WW.HallRequests)
+	// text += separatorRow
 	text = text + "\n####################################################################################################\n"
 	return text
 }

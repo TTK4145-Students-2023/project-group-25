@@ -1,7 +1,9 @@
 package P2P
 
 import (
+	"fmt"
 	"project/Network/Utilities/bcast"
+	PP "project/Network/printing"
 	dt "project/commonDataTypes"
 	"reflect"
 	"time"
@@ -39,10 +41,17 @@ func P2Pntw(localIP string,
 	go bcast.Transmitter(15667, transmittWorldVeiw)
 	go bcast.Transmitter(15668, transmittRequestStateMatrix)
 
+	RSM := ""
+	WW := ""
+
 	for {
 		select {
 		case localRequestStateMatrix = <-localRequestStateMatrixChan:
+			RSM = PP.RSM_toString(localRequestStateMatrix)
+			fmt.Printf(RSM + "\n" + WW)
 		case localWorldView = <-localWorldViewChan:
+			WW = PP.WW_toString(localWorldView.AllData)
+			fmt.Printf(RSM + "\n" + WW)
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
 
 			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix, externalRequestStateMatrix) {

@@ -23,12 +23,12 @@ func Test_WW_toString(t *testing.T) {
 		CabRequests: [dt.N_FLOORS]bool{false, true, false, true},
 	}
 
-	WW_t := dt.CostFuncInput{
-		HallRequests: [dt.N_FLOORS][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
-		States:       data,
-	}
+	// WW_t := dt.CostFuncInput{
+	// 	HallRequests: [dt.N_FLOORS][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
+	// 	States:       data,
+	// }
 
-	fmt.Printf(WW_toString(WW_t))
+	fmt.Println(WW_toString(data))
 
 }
 
