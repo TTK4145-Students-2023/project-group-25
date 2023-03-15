@@ -2,12 +2,14 @@ package main
 
 import (
 	//elevtest "project/localElevator/elev_test"
-	intest "project/integrationTest"
+	//intest "project/integrationTest"
+	intestNTW "project/networkIntegration"
 )
 
 func main() {
 
 	//oassign.OrderAssignerTestFunc()
 	//elevtest.RunSingleElevTest()
-	intest.RunAssignerAndDistributionIntegrationTest()
+	//intest.RunAssignerAndDistributionIntegrationTest()
+	intestNTW.RunNetworkWithAllTest()
 }

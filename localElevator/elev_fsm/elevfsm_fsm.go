@@ -1,15 +1,10 @@
 package elevfsm
 
 import (
+	"fmt"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
-	elevtimer "project/localElevator/elev_timer"
 	"time"
-)
-
-const (
-	N_FLOORS  = 4
-	N_BUTTONS = 3
 )
 
 type ClearRequestVariant int
@@ -45,8 +40,8 @@ type DirnBehaviourPair struct {
 type Elevator struct {
 	Floor        int
 	Dirn         elevio.MotorDirection
-	CabRequests  []bool
-	HallRequests [][2]bool
+	CabRequests  [dt.N_FLOORS]bool
+	HallRequests [dt.N_FLOORS][2]bool
 	Behaviour    ElevatorBehaviour
 	Config       ElevatorConfig
 }
@@ -64,30 +59,26 @@ func getElevatorData(e Elevator) dt.ElevDataJSON {
 		CabRequests: e.CabRequests}
 }
 
-func uninitializedElevator() Elevator {
-	return Elevator{
-		Floor:        -1,
-		Dirn:         elevio.MD_Stop,
-		CabRequests:  []bool{false, false, false, false},
-		HallRequests: [][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
-		Behaviour:    EB_Idle,
-		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3},
-	}
-}
-
 func FSM(
-	floor_hallRequests <-chan [][2]bool,
+	floor_hallRequests <-chan [dt.N_FLOORS][2]bool,
 	floor_cabButtonEvent <-chan elevio.ButtonEvent,
 	drv_floors <-chan int,
 	drv_obstr <-chan bool,
 	elev_data chan<- dt.ElevDataJSON,
 	handler_hallOrdersExecuted chan<- []elevio.ButtonEvent) {
 
-	e := uninitializedElevator()
 	obstr := false
-	timeout := make(chan bool)
+	e := Elevator{
+		Floor:        -1,
+		Dirn:         elevio.MD_Stop,
+		CabRequests:  [dt.N_FLOORS]bool{false, false, false, false},
+		HallRequests: [dt.N_FLOORS][2]bool{{false, false}, {false, false}, {false, false}, {false, false}},
+		Behaviour:    EB_Idle,
+		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3 * time.Second},
+	}
 
-	go elevtimer.TimerMain(timeout)
+	ElevTimer := time.NewTimer(2 * time.Millisecond)
+	<-ElevTimer.C
 
 	select {
 	case e.Floor = <-drv_floors:
@@ -105,7 +96,9 @@ func FSM(
 		e.Dirn = elevio.MD_Stop
 		e.Behaviour = EB_Idle
 	}
+	fmt.Printf("FSM, deadlock 1! ")
 	elev_data <- getElevatorData(e)
+	fmt.Printf("... kidding, no FSM deadlock 1...\n ")
 	for {
 		select {
 		case e.HallRequests = <-floor_hallRequests:
@@ -118,13 +111,15 @@ func FSM(
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
+					fmt.Printf("FSM, deadlock 1! ")
 					elev_data <- getElevatorData(e)
+					fmt.Printf("... kidding, no FSM deadlock 1...\n ")
 				}
 				switch e.Behaviour {
 				case EB_Idle:
 				case EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 
 				case EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
@@ -143,14 +138,16 @@ func FSM(
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
+					fmt.Printf("FSM, deadlock 2! ")
 					elev_data <- getElevatorData(e)
+					fmt.Printf("... kidding, no FSM deadlock 2...\n ")
 				}
 
 				switch e.Behaviour {
 				case EB_Idle:
 				case EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 
 				case EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
@@ -167,14 +164,16 @@ func FSM(
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					e.Behaviour = EB_DoorOpen
+					fmt.Printf("FSM, deadlock 3! ")
 					elev_data <- getElevatorData(e)
+					fmt.Printf("... kidding, no FSM deadlock 3...\n ")
 					if !obstr {
-						elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+						ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 					}
 				}
 			}
 
-		case <-timeout:
+		case <-ElevTimer.C:
 			switch e.Behaviour {
 			case EB_Idle:
 			case EB_Moving:
@@ -183,19 +182,25 @@ func FSM(
 				elevio.SetButtonLamp(elevio.BT_Cab, e.Floor, false)
 
 				hallOrdersExecuted := requests_getHallOrdersExecuted(e)
-				e = requests_clearLocalHallRequest(e, hallOrdersExecuted)
-				handler_hallOrdersExecuted <- hallOrdersExecuted
+				if len(hallOrdersExecuted) > 0 {
+					e = requests_clearLocalHallRequest(e, hallOrdersExecuted)
+					fmt.Printf("FSM, deadlock 4! ")
+					handler_hallOrdersExecuted <- hallOrdersExecuted
+					fmt.Printf("... kidding, no FSM deadlock 4...\n ")
+				}
 
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
+					fmt.Printf("FSM, deadlock 5! ")
 					elev_data <- getElevatorData(e)
+					fmt.Printf("... kidding, no FSM deadlock 5...\n ")
 				}
 
 				switch e.Behaviour {
 				case EB_DoorOpen:
-					elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 				case EB_Moving:
 					fallthrough
 				case EB_Idle:
@@ -206,14 +211,14 @@ func FSM(
 
 		case obstr = <-drv_obstr:
 			if obstr {
-				elevtimer.TimerKill()
+				ElevTimer.Stop()
 			}
 			switch e.Behaviour {
 			case EB_Idle:
 			case EB_Moving:
 			case EB_DoorOpen:
 				if !obstr {
-					elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 				}
 			}
 		}

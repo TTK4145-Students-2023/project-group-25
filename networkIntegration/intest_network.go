@@ -1,8 +1,11 @@
-package intest
+package intestNTW
 
 import (
+	"fmt"
+	P2P "project/Network/P2Pntw"
 	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
+	masterSlaveNTW "project/Network/masterSlaveNTW"
 	btnassign "project/buttonAssigner"
 	dt "project/commonDataTypes"
 	elevDataDistributor "project/distributingSystem/elevDataDistributor"
@@ -13,14 +16,6 @@ import (
 	"time"
 )
 
-func testSpecDistributor(masterSlaveRoleChan chan dt.MasterSlaveRole) {
-	masterSlaveRole := dt.MS_Master
-
-	for {
-		masterSlaveRoleChan <- masterSlaveRole
-	}
-}
-
 var (
 	masterSlaveRoleChan = make(chan dt.MasterSlaveRole)
 
@@ -29,6 +24,7 @@ var (
 	ordersToSlaves             = make(chan map[string][dt.N_FLOORS][2]bool) // Input written to Master-Slave network module
 	ordersLocal                = make(chan [dt.N_FLOORS][2]bool)
 	handler_hallOrdersExecuted = make(chan []elevio.ButtonEvent)
+	peerUpdate_MS              = make(chan peers.PeerUpdate)
 	peerUpdate_DataDistributor = make(chan peers.PeerUpdate)
 	peerUpdate_OrderHandler    = make(chan peers.PeerUpdate)
 
@@ -50,17 +46,35 @@ var (
 	allElevData_toP2P   = make(chan dt.AllElevDataJSON_withID)
 )
 
-func RunAssignerAndDistributionIntegrationTest() {
+func RunNetworkWithAllTest() {
 	localIP, _ := localip.LocalIP()
 	elevio.Init("localhost:15657", dt.N_FLOORS)
+
+	//elvio
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(btnEvent)
 	go elevio.PollObstructionSwitch(drv_obstr)
 
 	go btnassign.ButtonHandler(btnEvent, hallEvent, cabEvent)
 
-	// Order assigner
-	go testSpecDistributor(masterSlaveRoleChan)
+	// Peerlist handler
+	go peers.PeerListHandler(localIP,
+		peerUpdate_MS,
+		peerUpdate_DataDistributor,
+		peerUpdate_OrderHandler)
+
+	go masterSlaveNTW.MasterSlaveNTW(localIP,
+		peerUpdate_MS,
+		ordersToSlaves,
+		ordersFromMaster,
+		masterSlaveRoleChan,
+	)
+	go P2P.P2Pntw(localIP,
+		allElevData_toP2P,
+		ReqStateMatrix_toP2P,
+		allElevData_fromP2P,
+		ReqStateMatrix_fromP2P)
+	// order assigner
 	go oassign.OrderAssigner(localIP,
 		masterSlaveRoleChan,
 		ordersFromDistributor,
@@ -86,6 +100,7 @@ func RunAssignerAndDistributionIntegrationTest() {
 
 	time.Sleep(time.Millisecond * 40)
 
+	// FSM
 	go elevfsm.FSM(ordersLocal,
 		cabEvent,
 		drv_floors,
@@ -94,7 +109,15 @@ func RunAssignerAndDistributionIntegrationTest() {
 		handler_hallOrdersExecuted)
 
 	for {
-		// Kill orders that are yet to be handeled!
-		<-ordersToSlaves
+		event := <-btnEvent
+		if event.Button == elevio.BT_Cab {
+			fmt.Printf("INTEST, deadlock 1! ")
+			cabEvent <- event
+			fmt.Printf("... kidding, no INTEST deadlock 1...\n ")
+		} else {
+			fmt.Printf("INTEST, deadlock 1! ")
+			hallEvent <- event
+			fmt.Printf("... kidding, no INTEST deadlock 1...\n ")
+		}
 	}
 }
