@@ -3,7 +3,6 @@ package elevfsm
 import (
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
-	elevtimer "project/localElevator/elev_timer"
 	"time"
 )
 
@@ -77,7 +76,8 @@ func FSM(
 		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3 * time.Second},
 	}
 
-	go elevtimer.TimerMain(timeout)
+	ElevTimer := time.NewTimer(2 * time.Millisecond)
+	<-ElevTimer.C
 
 	select {
 	case e.Floor = <-drv_floors:
@@ -114,7 +114,7 @@ func FSM(
 				case EB_Idle:
 				case EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 
 				case EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
@@ -140,7 +140,7 @@ func FSM(
 				case EB_Idle:
 				case EB_DoorOpen:
 					elevio.SetDoorOpenLamp(true)
-					elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 
 				case EB_Moving:
 					elevio.SetMotorDirection(e.Dirn)
@@ -159,12 +159,12 @@ func FSM(
 					e.Behaviour = EB_DoorOpen
 					elev_data <- getElevatorData(e)
 					if !obstr {
-						elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+						ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 					}
 				}
 			}
 
-		case <-timeout:
+		case <-ElevTimer.C:
 			switch e.Behaviour {
 			case EB_Idle:
 			case EB_Moving:
@@ -187,7 +187,7 @@ func FSM(
 
 				switch e.Behaviour {
 				case EB_DoorOpen:
-					elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 				case EB_Moving:
 					fallthrough
 				case EB_Idle:
@@ -198,14 +198,14 @@ func FSM(
 
 		case obstr = <-drv_obstr:
 			if obstr {
-				elevtimer.TimerKill()
+				ElevTimer.Stop()
 			}
 			switch e.Behaviour {
 			case EB_Idle:
 			case EB_Moving:
 			case EB_DoorOpen:
 				if !obstr {
-					elevtimer.TimerStart(e.Config.DoorOpenDuration_s)
+					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 				}
 			}
 		}
