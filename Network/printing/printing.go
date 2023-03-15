@@ -28,7 +28,7 @@ func WW_toString(WW dt.AllElevDataJSON) string {
 	text += separatorRow
 
 	// Print each elevator's data.
-	ids := make([]string, len(WW))
+	ids := []string{}
 	for id := range WW {
 		ids = append(ids, id)
 	}
@@ -65,7 +65,7 @@ func RSM_toString(RSM dt.RequestStateMatrix) string {
 
 	// Iterate over each elevator's data
 
-	ids := make([]string, len(RSM))
+	ids := []string{}
 	for id := range RSM {
 		ids = append(ids, id)
 	}
