@@ -3,6 +3,7 @@ package printing
 import (
 	"fmt"
 	dt "project/commonDataTypes"
+	"sort"
 	"strings"
 )
 
@@ -27,13 +28,18 @@ func WW_toString(WW dt.AllElevDataJSON) string {
 	text += separatorRow
 
 	// Print each elevator's data.
-	for id, elevData := range WW {
+	ids := make([]string, len(WW))
+	for id := range WW {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
 		text = text + fmt.Sprintf("%-*s | %-*s | %-*d | %-*s | %v\n",
 			ColLen, id,
-			ColLen, elevData.Behavior,
-			ColLen, elevData.Floor,
-			ColLen, elevData.Direction,
-			elevData.CabRequests)
+			ColLen, WW[id].Behavior,
+			ColLen, WW[id].Floor,
+			ColLen, WW[id].Direction,
+			WW[id].CabRequests)
 	}
 	text += separatorRow
 	// text = text + fmt.Sprintf("\nHallrequest: %v \n", WW.HallRequests)
@@ -58,9 +64,15 @@ func RSM_toString(RSM dt.RequestStateMatrix) string {
 	text += separatorRow
 
 	// Iterate over each elevator's data
-	for id, reqData := range RSM {
+
+	ids := make([]string, len(RSM))
+	for id := range RSM {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
 		text += fmt.Sprintf("%-12s", id)
-		for _, state := range reqData {
+		for _, state := range RSM[id] {
 			switch state[0] {
 			case STATE_none:
 				text += "|NONE       "
