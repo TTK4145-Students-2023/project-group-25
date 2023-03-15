@@ -1,7 +1,6 @@
 package elevDataDistributor
 
 import (
-	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 )
@@ -45,14 +44,10 @@ func DataDistributor(localIP string,
 					HallRequests: orders,
 					States:       data_aliveNodes,
 				}
-				fmt.Printf("DATADIST, deadlock 1! ")
 				WorldView_toAssigner <- currentWorldView
-				fmt.Printf("... kidding, no DATADIST deadlock 1...\n ")
 			}
 		}
-		fmt.Printf("DATADIST, deadlock 2! ")
 		allElevData_toP2P <- dt.AllElevDataJSON_withID{ID: localIP, AllData: Local_DataMatrix}
-		fmt.Printf("... kidding, no DATADIST deadlock 2...\n ")
 	}
 }
 

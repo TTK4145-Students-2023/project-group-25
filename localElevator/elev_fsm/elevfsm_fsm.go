@@ -1,7 +1,6 @@
 package elevfsm
 
 import (
-	"fmt"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
 	"time"
@@ -96,9 +95,7 @@ func FSM(
 		e.Dirn = elevio.MD_Stop
 		e.Behaviour = EB_Idle
 	}
-	fmt.Printf("FSM, deadlock 1! ")
 	elev_data <- getElevatorData(e)
-	fmt.Printf("... kidding, no FSM deadlock 1...\n ")
 	for {
 		select {
 		case e.HallRequests = <-floor_hallRequests:
@@ -111,9 +108,7 @@ func FSM(
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
-					fmt.Printf("FSM, deadlock 1! ")
 					elev_data <- getElevatorData(e)
-					fmt.Printf("... kidding, no FSM deadlock 1...\n ")
 				}
 				switch e.Behaviour {
 				case EB_Idle:
@@ -138,9 +133,7 @@ func FSM(
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
-					fmt.Printf("FSM, deadlock 2! ")
 					elev_data <- getElevatorData(e)
-					fmt.Printf("... kidding, no FSM deadlock 2...\n ")
 				}
 
 				switch e.Behaviour {
@@ -164,9 +157,7 @@ func FSM(
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					e.Behaviour = EB_DoorOpen
-					fmt.Printf("FSM, deadlock 3! ")
 					elev_data <- getElevatorData(e)
-					fmt.Printf("... kidding, no FSM deadlock 3...\n ")
 					if !obstr {
 						ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 					}
@@ -184,18 +175,14 @@ func FSM(
 				hallOrdersExecuted := requests_getHallOrdersExecuted(e)
 				if len(hallOrdersExecuted) > 0 {
 					e = requests_clearLocalHallRequest(e, hallOrdersExecuted)
-					fmt.Printf("FSM, deadlock 4! ")
 					handler_hallOrdersExecuted <- hallOrdersExecuted
-					fmt.Printf("... kidding, no FSM deadlock 4...\n ")
 				}
 
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
-					fmt.Printf("FSM, deadlock 5! ")
 					elev_data <- getElevatorData(e)
-					fmt.Printf("... kidding, no FSM deadlock 5...\n ")
 				}
 
 				switch e.Behaviour {

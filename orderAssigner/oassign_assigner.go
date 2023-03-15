@@ -55,22 +55,16 @@ func OrderAssigner(localIP string,
 					break
 				}
 				if localHallOrders, ok := output[localIP]; ok {
-					fmt.Printf("OASSIGN, deadlock 1! ")
 					localOrders <- localHallOrders
-					fmt.Printf("... kidding, no OASSIGN deadlock 1...\n ")
 				}
-				fmt.Printf("OASSIGN, deadlock 2! ")
 				ordersToSlaves <- output
-				fmt.Printf("... kidding, no OASSIGN deadlock 2...\n ")
 			}
 		case newOrders := <-ordersFromMaster:
 			switch assignerBehaviour {
 			case dt.MS_Master:
 			case dt.MS_Slave:
 				if localHallOrders, ok := newOrders[localIP]; ok {
-					fmt.Printf("OASSIGN, deadlock 3! ")
 					localOrders <- localHallOrders
-					fmt.Printf("... kidding, no OASSIGN deadlock 3...\n ")
 				}
 			}
 		}

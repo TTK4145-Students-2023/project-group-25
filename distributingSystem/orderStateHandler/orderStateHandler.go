@@ -1,7 +1,6 @@
 package orderStateHandler
 
 import (
-	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
@@ -125,13 +124,9 @@ func OrderStateHandler(localIP string,
 			}
 		}
 		if reqStateMatrixUpdated {
-			fmt.Printf("ORDERHANDLER, deadlock 1! ")
 			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-			fmt.Printf("... kidding, no ORDERHANDLER deadlock 1...\n ")
 
-			fmt.Printf("ORDERHANDLER, deadlock 2! ")
 			HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP)
-			fmt.Printf("... kidding, no ORDERHANDLER deadlock 2...\n ")
 		}
 	}
 }
