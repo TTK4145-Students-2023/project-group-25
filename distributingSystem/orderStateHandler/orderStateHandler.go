@@ -89,6 +89,7 @@ func OrderStateHandler(localIP string,
 					continue
 				}
 				localStateArray := Local_ReqStatMatrix[localIP]
+				// Kva skjer her dersom order blir executed før state_confirmed?
 				if localStateArray[btn.Floor][btn.Button] == STATE_confirmed {
 					localStateArray[btn.Floor][btn.Button] = STATE_none
 					Local_ReqStatMatrix[localIP] = localStateArray
@@ -124,8 +125,13 @@ func OrderStateHandler(localIP string,
 			}
 		}
 		if reqStateMatrixUpdated {
+			fmt.Printf("ORDERHANDLER, deadlock 1! ")
 			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
+			fmt.Printf("... kidding, no ORDERHANDLER deadlock 1...\n ")
+
+			fmt.Printf("ORDERHANDLER, deadlock 2! ")
 			HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP)
+			fmt.Printf("... kidding, no ORDERHANDLER deadlock 2...\n ")
 		}
 	}
 }
