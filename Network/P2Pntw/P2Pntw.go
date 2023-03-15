@@ -57,12 +57,12 @@ func P2Pntw(localIP string,
 			WW = PP.WW_toString(localWorldView.AllData)
 			fmt.Printf(RSM + "/n" + WW)
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
-			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix, requestStateMatrix) {
+			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix.RequestMatrix, requestStateMatrix.RequestMatrix) {
 				requestStateMatrix = newRequestStateMatrix
 				reqStateMatrixTimer.Reset(1)
 			}
 		case newWorldView := <-receiveWorldView:
-			if localIP != newWorldView.ID && !reflect.DeepEqual(newWorldView, worldView) {
+			if localIP != newWorldView.ID && !reflect.DeepEqual(newWorldView.AllData, worldView.AllData) {
 				worldView = newWorldView
 				worldViewTimer.Reset(1)
 			}
