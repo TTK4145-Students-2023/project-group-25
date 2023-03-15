@@ -36,6 +36,8 @@ func PeerListHandler(localIP string,
 				select {
 				case peerUpdate_MS <- peerList:
 					peerListSendt[0] = true
+				case peerList = <-peerUpdateCh:
+					peerListSendt = [3]bool{false, false, false}
 				default:
 				}
 			}
@@ -43,14 +45,17 @@ func PeerListHandler(localIP string,
 				select {
 				case peerUpdate_DataDistributor <- peerList:
 					peerListSendt[1] = true
+				case peerList = <-peerUpdateCh:
+					peerListSendt = [3]bool{false, false, false}
 				default:
 				}
 			}
-
 			if !peerListSendt[2] {
 				select {
 				case peerUpdate_OrderHandler <- peerList:
 					peerListSendt[2] = true
+				case peerList = <-peerUpdateCh:
+					peerListSendt = [3]bool{false, false, false}
 				default:
 				}
 			}

@@ -1,7 +1,6 @@
 package intestNTW
 
 import (
-	"fmt"
 	P2P "project/Network/P2Pntw"
 	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
@@ -111,13 +110,9 @@ func RunNetworkWithAllTest() {
 	for {
 		event := <-btnEvent
 		if event.Button == elevio.BT_Cab {
-			fmt.Printf("INTEST, deadlock 1! ")
 			cabEvent <- event
-			fmt.Printf("... kidding, no INTEST deadlock 1...\n ")
 		} else {
-			fmt.Printf("INTEST, deadlock 1! ")
 			hallEvent <- event
-			fmt.Printf("... kidding, no INTEST deadlock 1...\n ")
 		}
 	}
 }

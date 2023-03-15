@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	dt "project/commonDataTypes"
 	"runtime"
+	"time"
 )
 
 // Struct members must be public in order to be accessible by json.Marshal/.Unmarshal
@@ -15,8 +16,15 @@ func OrderAssigner(localIP string,
 	masterSlaveRoleChan <-chan dt.MasterSlaveRole,
 	ordersFromDistributor <-chan dt.CostFuncInput, // Input from order distributor
 	ordersFromMaster <-chan map[string][dt.N_FLOORS][2]bool, // Input read from Master-Slave network module
-	ordersToSlaves chan<- map[string][dt.N_FLOORS][2]bool, // Input written to Master-Slave network module
+	ordersToSlavesChan chan<- map[string][dt.N_FLOORS][2]bool, // Input written to Master-Slave network module
 	localOrders chan<- [dt.N_FLOORS][2]bool) { // Input to local Elevator FSM
+
+	localHallOrders := [dt.N_FLOORS][2]bool{}
+	ordersToSlaves := map[string][dt.N_FLOORS][2]bool{}
+	localOrdersTimer := time.NewTimer(1)
+	localOrdersTimer.Stop()
+	ordersToSlavesTimer := time.NewTimer(1)
+	ordersToSlavesTimer.Stop()
 
 	hraExecutable := ""
 	switch runtime.GOOS {
@@ -54,24 +62,33 @@ func OrderAssigner(localIP string,
 					fmt.Println("json.Unmarshal error: ", err)
 					break
 				}
-				if localHallOrders, ok := output[localIP]; ok {
-					fmt.Printf("OASSIGN, deadlock 1! ")
-					localOrders <- localHallOrders
-					fmt.Printf("... kidding, no OASSIGN deadlock 1...\n ")
+				if newLocalHallOrders, ok := output[localIP]; ok {
+					localHallOrders = newLocalHallOrders
+					localOrdersTimer.Reset(1)
 				}
-				fmt.Printf("OASSIGN, deadlock 2! ")
-				ordersToSlaves <- output
-				fmt.Printf("... kidding, no OASSIGN deadlock 2...\n ")
+				ordersToSlaves = output
+				ordersToSlavesTimer.Reset(1)
 			}
 		case newOrders := <-ordersFromMaster:
 			switch assignerBehaviour {
 			case dt.MS_Master:
 			case dt.MS_Slave:
-				if localHallOrders, ok := newOrders[localIP]; ok {
-					fmt.Printf("OASSIGN, deadlock 3! ")
-					localOrders <- localHallOrders
-					fmt.Printf("... kidding, no OASSIGN deadlock 3...\n ")
+				if newLocalHallOrders, ok := newOrders[localIP]; ok {
+					localHallOrders = newLocalHallOrders
+					localOrdersTimer.Reset(1)
 				}
+			}
+		case <-ordersToSlavesTimer.C:
+			select {
+			case ordersToSlavesChan <- ordersToSlaves:
+			default:
+				ordersToSlavesTimer.Reset(1)
+			}
+		case <-localOrdersTimer.C:
+			select {
+			case localOrders <- localHallOrders:
+			default:
+				localOrdersTimer.Reset(1)
 			}
 		}
 	}

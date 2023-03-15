@@ -1,9 +1,9 @@
 package elevDataDistributor
 
 import (
-	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
+	"time"
 )
 
 // Statemachine for Distributor
@@ -17,7 +17,13 @@ func DataDistributor(localIP string,
 ) {
 	//init local Data Matrix with local ID
 	Local_DataMatrix := make(dt.AllElevDataJSON)
+	currentWorldView := dt.CostFuncInput{}
 	peerList := peers.PeerUpdate{}
+
+	worldViewTimer := time.NewTimer(1)
+	worldViewTimer.Stop()
+	allElevDataTimer := time.NewTimer(1)
+	allElevDataTimer.Stop()
 
 	for {
 		select {
@@ -41,18 +47,25 @@ func DataDistributor(localIP string,
 			}
 
 			if len(data_aliveNodes) != 0 {
-				currentWorldView := dt.CostFuncInput{
+				currentWorldView = dt.CostFuncInput{
 					HallRequests: orders,
 					States:       data_aliveNodes,
 				}
-				fmt.Printf("DATADIST, deadlock 1! ")
-				WorldView_toAssigner <- currentWorldView
-				fmt.Printf("... kidding, no DATADIST deadlock 1...\n ")
+				worldViewTimer.Reset(1)
+			}
+		case <-worldViewTimer.C:
+			select {
+			case WorldView_toAssigner <- currentWorldView:
+			default:
+				worldViewTimer.Reset(1)
+			}
+		case <-allElevDataTimer.C:
+			select {
+			case allElevData_toP2P <- dt.AllElevDataJSON_withID{ID: localIP, AllData: Local_DataMatrix}:
+			default:
 			}
 		}
-		fmt.Printf("DATADIST, deadlock 2! ")
-		allElevData_toP2P <- dt.AllElevDataJSON_withID{ID: localIP, AllData: Local_DataMatrix}
-		fmt.Printf("... kidding, no DATADIST deadlock 2...\n ")
+		allElevDataTimer.Reset(1)
 	}
 }
 

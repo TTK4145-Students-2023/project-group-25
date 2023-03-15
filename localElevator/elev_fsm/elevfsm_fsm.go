@@ -1,7 +1,6 @@
 package elevfsm
 
 import (
-	"fmt"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
 	"time"
@@ -68,6 +67,7 @@ func FSM(
 	handler_hallOrdersExecuted chan<- []elevio.ButtonEvent) {
 
 	obstr := false
+	hallOrdersExecuted := []elevio.ButtonEvent{}
 	e := Elevator{
 		Floor:        -1,
 		Dirn:         elevio.MD_Stop,
@@ -77,8 +77,12 @@ func FSM(
 		Config:       ElevatorConfig{ClearRequestVariant: CV_InDirn, DoorOpenDuration_s: 3 * time.Second},
 	}
 
-	ElevTimer := time.NewTimer(2 * time.Millisecond)
+	ElevTimer := time.NewTimer(1)
 	<-ElevTimer.C
+
+	elevDataTimer := time.NewTimer(1)
+	hallOrdersExecutedTimer := time.NewTimer(1)
+	<-hallOrdersExecutedTimer.C
 
 	select {
 	case e.Floor = <-drv_floors:
@@ -96,9 +100,6 @@ func FSM(
 		e.Dirn = elevio.MD_Stop
 		e.Behaviour = EB_Idle
 	}
-	fmt.Printf("FSM, deadlock 1! ")
-	elev_data <- getElevatorData(e)
-	fmt.Printf("... kidding, no FSM deadlock 1...\n ")
 	for {
 		select {
 		case e.HallRequests = <-floor_hallRequests:
@@ -106,14 +107,11 @@ func FSM(
 			case EB_DoorOpen:
 			case EB_Moving:
 			case EB_Idle:
-
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
-					fmt.Printf("FSM, deadlock 1! ")
-					elev_data <- getElevatorData(e)
-					fmt.Printf("... kidding, no FSM deadlock 1...\n ")
+					elevDataTimer.Reset(1)
 				}
 				switch e.Behaviour {
 				case EB_Idle:
@@ -125,7 +123,6 @@ func FSM(
 					elevio.SetMotorDirection(e.Dirn)
 				}
 			}
-
 		case cabButtonEvent := <-floor_cabButtonEvent:
 			e.CabRequests[cabButtonEvent.Floor] = true
 			elevio.SetButtonLamp(elevio.BT_Cab, cabButtonEvent.Floor, true)
@@ -133,16 +130,12 @@ func FSM(
 			case EB_DoorOpen:
 			case EB_Moving:
 			case EB_Idle:
-
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
-					fmt.Printf("FSM, deadlock 2! ")
-					elev_data <- getElevatorData(e)
-					fmt.Printf("... kidding, no FSM deadlock 2...\n ")
+					elevDataTimer.Reset(1)
 				}
-
 				switch e.Behaviour {
 				case EB_Idle:
 				case EB_DoorOpen:
@@ -153,7 +146,6 @@ func FSM(
 					elevio.SetMotorDirection(e.Dirn)
 				}
 			}
-
 		case e.Floor = <-drv_floors:
 			elevio.SetFloorIndicator(e.Floor)
 			switch e.Behaviour {
@@ -164,15 +156,12 @@ func FSM(
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					e.Behaviour = EB_DoorOpen
-					fmt.Printf("FSM, deadlock 3! ")
-					elev_data <- getElevatorData(e)
-					fmt.Printf("... kidding, no FSM deadlock 3...\n ")
+					elevDataTimer.Reset(1)
 					if !obstr {
 						ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 					}
 				}
 			}
-
 		case <-ElevTimer.C:
 			switch e.Behaviour {
 			case EB_Idle:
@@ -180,24 +169,17 @@ func FSM(
 			case EB_DoorOpen:
 				e.CabRequests[e.Floor] = false
 				elevio.SetButtonLamp(elevio.BT_Cab, e.Floor, false)
-
-				hallOrdersExecuted := requests_getHallOrdersExecuted(e)
+				hallOrdersExecuted = requests_getHallOrdersExecuted(e)
 				if len(hallOrdersExecuted) > 0 {
 					e = requests_clearLocalHallRequest(e, hallOrdersExecuted)
-					fmt.Printf("FSM, deadlock 4! ")
-					handler_hallOrdersExecuted <- hallOrdersExecuted
-					fmt.Printf("... kidding, no FSM deadlock 4...\n ")
+					hallOrdersExecutedTimer.Reset(1)
 				}
-
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Dirn = dirnBehaviourPair.Dirn
 					e.Behaviour = dirnBehaviourPair.Behaviour
-					fmt.Printf("FSM, deadlock 5! ")
-					elev_data <- getElevatorData(e)
-					fmt.Printf("... kidding, no FSM deadlock 5...\n ")
+					elevDataTimer.Reset(1)
 				}
-
 				switch e.Behaviour {
 				case EB_DoorOpen:
 					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
@@ -208,7 +190,6 @@ func FSM(
 					elevio.SetMotorDirection(e.Dirn)
 				}
 			}
-
 		case obstr = <-drv_obstr:
 			if obstr {
 				ElevTimer.Stop()
@@ -220,6 +201,18 @@ func FSM(
 				if !obstr {
 					ElevTimer.Reset(e.Config.DoorOpenDuration_s)
 				}
+			}
+		case <-elevDataTimer.C:
+			select {
+			case elev_data <- getElevatorData(e):
+			default:
+				elevDataTimer.Reset(1)
+			}
+		case <-hallOrdersExecutedTimer.C:
+			select {
+			case handler_hallOrdersExecuted <- hallOrdersExecuted:
+			default:
+				hallOrdersExecutedTimer.Reset(1)
 			}
 		}
 	}

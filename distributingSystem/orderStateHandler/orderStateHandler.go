@@ -1,10 +1,10 @@
 package orderStateHandler
 
 import (
-	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
+	"time"
 )
 
 // States for hall requests
@@ -22,18 +22,21 @@ func OrderStateHandler(localIP string,
 	ReqStateMatrix_toP2P chan<- dt.RequestStateMatrix,
 	peerUpdateChan <-chan peers.PeerUpdate,
 ) {
-
 	Local_ReqStatMatrix := make(dt.RequestStateMatrix)
 	peerList := peers.PeerUpdate{}
 
+	reqStateMatrixTimer := time.NewTimer(1)
+	reqStateMatrixTimer.Stop()
+	hallOrderArrayTimer := time.NewTimer(1)
+	hallOrderArrayTimer.Stop()
 	for {
-		reqStateMatrixUpdated := false
 		select {
 		case peerList = <-peerUpdateChan:
 			for _, nodeID := range peerList.Peers {
 				if _, valInMap := Local_ReqStatMatrix[nodeID]; !valInMap {
 					Local_ReqStatMatrix[nodeID] = dt.SingleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
-					reqStateMatrixUpdated = true
+					reqStateMatrixTimer.Reset(1)
+					hallOrderArrayTimer.Reset(1)
 				}
 			}
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
@@ -57,20 +60,23 @@ func OrderStateHandler(localIP string,
 								localStateArray[floor][btn_UpDown] = STATE_none
 								Local_ReqStatMatrix[localIP] = localStateArray
 								elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, false)
-								reqStateMatrixUpdated = true
+								reqStateMatrixTimer.Reset(1)
+								hallOrderArrayTimer.Reset(1)
 							}
 						case STATE_new:
 							if localStateArray[floor][btn_UpDown] == STATE_none {
 								localStateArray[floor][btn_UpDown] = STATE_new
 								Local_ReqStatMatrix[localIP] = localStateArray
-								reqStateMatrixUpdated = true
+								reqStateMatrixTimer.Reset(1)
+								hallOrderArrayTimer.Reset(1)
 							}
 						case STATE_confirmed:
 							if localStateArray[floor][btn_UpDown] == STATE_new {
 								localStateArray[floor][btn_UpDown] = STATE_confirmed
 								Local_ReqStatMatrix[localIP] = localStateArray
 								elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true)
-								reqStateMatrixUpdated = true
+								reqStateMatrixTimer.Reset(1)
+								hallOrderArrayTimer.Reset(1)
 							}
 						}
 					}
@@ -81,7 +87,8 @@ func OrderStateHandler(localIP string,
 			if localStateArray[BtnPress.Floor][BtnPress.Button] == STATE_none {
 				localStateArray[BtnPress.Floor][BtnPress.Button] = STATE_new
 				Local_ReqStatMatrix[localIP] = localStateArray
-				reqStateMatrixUpdated = true
+				reqStateMatrixTimer.Reset(1)
+				hallOrderArrayTimer.Reset(1)
 			}
 		case executedArray := <-orderExecuted:
 			for _, btn := range executedArray {
@@ -93,9 +100,22 @@ func OrderStateHandler(localIP string,
 				if localStateArray[btn.Floor][btn.Button] == STATE_confirmed {
 					localStateArray[btn.Floor][btn.Button] = STATE_none
 					Local_ReqStatMatrix[localIP] = localStateArray
-					reqStateMatrixUpdated = true
+					reqStateMatrixTimer.Reset(1)
+					hallOrderArrayTimer.Reset(1)
 					elevio.SetButtonLamp(btn.Button, btn.Floor, false)
 				}
+			}
+		case <-hallOrderArrayTimer.C:
+			select {
+			case HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP):
+			default:
+				hallOrderArrayTimer.Reset(1)
+			}
+		case <-reqStateMatrixTimer.C:
+			select {
+			case ReqStateMatrix_toP2P <- Local_ReqStatMatrix:
+			default:
+				reqStateMatrixTimer.Reset(1)
 			}
 		}
 		//Check if Order can be confirmed
@@ -119,19 +139,11 @@ func OrderStateHandler(localIP string,
 					localStateArray := Local_ReqStatMatrix[localIP]
 					localStateArray[floor][btn_UpDown] = STATE_confirmed
 					Local_ReqStatMatrix[localIP] = localStateArray
-					reqStateMatrixUpdated = true
+					reqStateMatrixTimer.Reset(1)
+					hallOrderArrayTimer.Reset(1)
 					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true) //turn on light?
 				}
 			}
-		}
-		if reqStateMatrixUpdated {
-			fmt.Printf("ORDERHANDLER, deadlock 1! ")
-			ReqStateMatrix_toP2P <- Local_ReqStatMatrix
-			fmt.Printf("... kidding, no ORDERHANDLER deadlock 1...\n ")
-
-			fmt.Printf("ORDERHANDLER, deadlock 2! ")
-			HallOrderArray <- ConfirmedOrdersToHallOrder(Local_ReqStatMatrix, localIP)
-			fmt.Printf("... kidding, no ORDERHANDLER deadlock 2...\n ")
 		}
 	}
 }
