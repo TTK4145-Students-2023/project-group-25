@@ -55,11 +55,11 @@ func MasterSlaveNTW(localIP string,
 				}
 			}
 		case <-broadCastTimer.C:
+			broadCastTimer.Reset(BROADCAST_FREQ)
 			switch MS_role {
 			case dt.MS_Slave:
 			case dt.MS_Master:
 				transmittOrdersChan <- ordersToSlaves
-				broadCastTimer.Reset(BROADCAST_FREQ)
 			}
 		case <-masterSlaveRoleTimer.C:
 			select {
