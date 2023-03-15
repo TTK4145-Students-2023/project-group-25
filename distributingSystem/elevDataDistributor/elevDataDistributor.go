@@ -11,7 +11,7 @@ func DataDistributor(localIP string,
 	allElevData_fromP2P <-chan dt.AllElevDataJSON_withID,
 	localElevData <-chan dt.ElevDataJSON,
 	HallOrderArray <-chan [dt.N_FLOORS][2]bool,
-	allElevData_toP2P chan<- dt.AllElevDataJSON_withID,
+	allElevData_toP2P chan<- dt.AllElevDataJSON,
 	WorldView_toAssigner chan<- dt.CostFuncInput,
 	peerUpdateChan <-chan peers.PeerUpdate,
 ) {
@@ -64,7 +64,7 @@ func DataDistributor(localIP string,
 			}
 		case <-allElevDataTimer.C:
 			select {
-			case allElevData_toP2P <- dt.AllElevDataJSON_withID{ID: localIP, AllData: Local_DataMatrix}:
+			case allElevData_toP2P <- Local_DataMatrix:
 			default:
 				allElevDataTimer.Reset(1)
 			}

@@ -12,7 +12,7 @@ import (
 const BROADCAST_FREQ = 100 * time.Millisecond
 
 func P2Pntw(localIP string,
-	localWorldViewChan <-chan dt.AllElevDataJSON_withID,
+	localWorldViewChan <-chan dt.AllElevDataJSON,
 	localRequestStateMatrixChan <-chan dt.RequestStateMatrix,
 	externalWorldViewChan chan<- dt.AllElevDataJSON_withID,
 	externalRequestStateMatrixChan chan<- dt.RequestStateMatrix_with_ID,
@@ -24,7 +24,7 @@ func P2Pntw(localIP string,
 		receiveRequestStateMatrix   = make(chan dt.RequestStateMatrix_with_ID)
 	)
 
-	localWorldView := dt.AllElevDataJSON_withID{}
+	localWorldView := dt.AllElevDataJSON{}
 	localRequestStateMatrix := dt.RequestStateMatrix{}
 
 	worldView := dt.AllElevDataJSON_withID{}
@@ -54,20 +54,24 @@ func P2Pntw(localIP string,
 			RSM = PP.RSM_toString(localRequestStateMatrix)
 			fmt.Printf(RSM + "/n" + WW)
 		case localWorldView = <-localWorldViewChan:
-			WW = PP.WW_toString(localWorldView.AllData)
+			WW = PP.WW_toString(localWorldView)
 			fmt.Printf(RSM + "/n" + WW)
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
-			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix.RequestMatrix, requestStateMatrix.RequestMatrix) {
+			senderData := newRequestStateMatrix.RequestMatrix
+			senderIP := newRequestStateMatrix.IpAdress
+			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localRequestStateMatrix[senderIP]) {
 				requestStateMatrix = newRequestStateMatrix
 				reqStateMatrixTimer.Reset(1)
 			}
 		case newWorldView := <-receiveWorldView:
-			if localIP != newWorldView.ID && !reflect.DeepEqual(newWorldView.AllData, worldView.AllData) {
+			senderData := newWorldView.AllData
+			senderIP := newWorldView.ID
+			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localWorldView[senderIP]) {
 				worldView = newWorldView
 				worldViewTimer.Reset(1)
 			}
 		case <-broadCastTimer.C:
-			transmittWorldVeiw <- localWorldView
+			transmittWorldVeiw <- dt.AllElevDataJSON_withID{ID: localIP, AllData: localWorldView}
 			transmittRequestStateMatrix <- dt.RequestStateMatrix_with_ID{IpAdress: localIP, RequestMatrix: localRequestStateMatrix}
 			broadCastTimer.Reset(BROADCAST_FREQ)
 		case <-worldViewTimer.C:

@@ -42,7 +42,7 @@ var (
 
 	// Data distributor channels
 	allElevData_fromP2P = make(chan dt.AllElevDataJSON_withID)
-	allElevData_toP2P   = make(chan dt.AllElevDataJSON_withID)
+	allElevData_toP2P   = make(chan dt.AllElevDataJSON)
 )
 
 func RunNetworkWithAllTest() {
