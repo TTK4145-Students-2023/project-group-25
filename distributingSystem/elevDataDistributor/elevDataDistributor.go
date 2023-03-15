@@ -34,9 +34,11 @@ func DataDistributor(localIP string,
 			recivedData := DataFromP2P.AllData[recivedID]
 
 			Local_DataMatrix[recivedID] = recivedData
+			allElevDataTimer.Reset(1)
 
 		case localData := <-localElevData:
 			Local_DataMatrix[localIP] = localData
+			allElevDataTimer.Reset(1)
 
 		case orders := <-HallOrderArray:
 			data_aliveNodes := make(dt.AllElevDataJSON)
@@ -53,6 +55,7 @@ func DataDistributor(localIP string,
 				}
 				worldViewTimer.Reset(1)
 			}
+			allElevDataTimer.Reset(1)
 		case <-worldViewTimer.C:
 			select {
 			case WorldView_toAssigner <- currentWorldView:
@@ -63,9 +66,10 @@ func DataDistributor(localIP string,
 			select {
 			case allElevData_toP2P <- dt.AllElevDataJSON_withID{ID: localIP, AllData: Local_DataMatrix}:
 			default:
+				allElevDataTimer.Reset(1)
 			}
 		}
-		allElevDataTimer.Reset(1)
+
 	}
 }
 
