@@ -1,14 +1,13 @@
 package P2P
 
 import (
-	"fmt"
 	"project/Network/Utilities/bcast"
 	dt "project/commonDataTypes"
 	"reflect"
 	"time"
 )
 
-const BROADCAST_FREQ = 100 //ms
+const BROADCAST_FREQ = 100 * time.Millisecond
 
 func P2Pntw(localIP string,
 	localWorldViewChan <-chan dt.AllElevDataJSON_withID,
@@ -26,11 +25,15 @@ func P2Pntw(localIP string,
 	localWorldView := dt.AllElevDataJSON_withID{}
 	localRequestStateMatrix := dt.RequestStateMatrix{}
 
-	externalWorldView := dt.AllElevDataJSON_withID{}
-	externalRequestStateMatrix := dt.RequestStateMatrix_with_ID{}
+	worldView := dt.AllElevDataJSON_withID{}
+	requestStateMatrix := dt.RequestStateMatrix_with_ID{}
 
 	//set timer
-	timer := time.NewTimer(BROADCAST_FREQ * time.Millisecond)
+	broadCastTimer := time.NewTimer(BROADCAST_FREQ)
+	reqStateMatrixTimer := time.NewTimer(1)
+	reqStateMatrixTimer.Stop()
+	worldViewTimer := time.NewTimer(1)
+	worldViewTimer.Stop()
 
 	// Receive from NTW
 	go bcast.Receiver(15667, receiveWorldView)
@@ -45,25 +48,31 @@ func P2Pntw(localIP string,
 		case localRequestStateMatrix = <-localRequestStateMatrixChan:
 		case localWorldView = <-localWorldViewChan:
 		case newRequestStateMatrix := <-receiveRequestStateMatrix:
-
-			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix, externalRequestStateMatrix) {
-				externalRequestStateMatrix = newRequestStateMatrix
-				fmt.Printf("P2P, deadlock 1! ")
-				externalRequestStateMatrixChan <- externalRequestStateMatrix
-				fmt.Printf("... kidding, no P2P deadlock 1...\n ")
+			if localIP != newRequestStateMatrix.IpAdress && !reflect.DeepEqual(newRequestStateMatrix, requestStateMatrix) {
+				requestStateMatrix = newRequestStateMatrix
+				reqStateMatrixTimer.Reset(1)
 			}
 		case newWorldView := <-receiveWorldView:
-			if localIP != newWorldView.ID && !reflect.DeepEqual(newWorldView, externalWorldView) {
-
-				externalWorldView = newWorldView
-				fmt.Printf("P2P, deadlock 2! ")
-				externalWorldViewChan <- externalWorldView
-				fmt.Printf("... kidding, no P2P deadlock 2...\n ")
+			if localIP != newWorldView.ID && !reflect.DeepEqual(newWorldView, worldView) {
+				worldView = newWorldView
+				worldViewTimer.Reset(1)
 			}
-		case <-timer.C:
+		case <-broadCastTimer.C:
 			transmittWorldVeiw <- localWorldView
 			transmittRequestStateMatrix <- dt.RequestStateMatrix_with_ID{IpAdress: localIP, RequestMatrix: localRequestStateMatrix}
-			timer.Reset(BROADCAST_FREQ * time.Millisecond)
+			broadCastTimer.Reset(BROADCAST_FREQ)
+		case <-worldViewTimer.C:
+			select {
+			case externalWorldViewChan <- worldView:
+			default:
+				worldViewTimer.Reset(1)
+			}
+		case <-reqStateMatrixTimer.C:
+			select {
+			case externalRequestStateMatrixChan <- requestStateMatrix:
+			default:
+				reqStateMatrixTimer.Reset(1)
+			}
 		}
 	}
 }

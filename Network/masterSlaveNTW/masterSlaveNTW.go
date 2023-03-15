@@ -1,7 +1,6 @@
 package masterSlaveNTW
 
 import (
-	"fmt"
 	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
@@ -12,7 +11,7 @@ import (
 // datatypes
 type AssignedOrders map[string][]bool
 
-const BROADCAST_FREQ = 100 //ms
+const BROADCAST_FREQ = 100 * time.Millisecond //ms
 
 func MasterSlaveNTW(localIP string,
 	peerUpdateChan chan peers.PeerUpdate,
@@ -28,7 +27,12 @@ func MasterSlaveNTW(localIP string,
 	go bcast.Receiver(15660, receiveOrdersChan)
 	go bcast.Transmitter(15660, transmittOrdersChan)
 
-	timer := time.NewTimer(BROADCAST_FREQ * time.Millisecond)
+	broadCastTimer := time.NewTimer(1)
+	masterSlaveRoleTimer := time.NewTimer(1)
+	masterSlaveRoleTimer.Stop()
+	ordersFromMasterTimer := time.NewTimer(1)
+	ordersFromMasterTimer.Stop()
+
 	MS_role := dt.MS_Slave
 	ordersToSlaves := map[string][dt.N_FLOORS][2]bool{}
 	ordersFromMaster := map[string][dt.N_FLOORS][2]bool{}
@@ -36,30 +40,38 @@ func MasterSlaveNTW(localIP string,
 	for {
 		select {
 		case peerUpdate := <-peerUpdateChan:
-			if newRole := MS_Assigner(localIP, peerUpdate.Peers); newRole != MS_role {
-				MS_role = newRole
-				fmt.Printf("MS, deadlock 1! ")
-				masterOrSlaveChan <- MS_role
-				fmt.Printf("... kidding, no MS deadlock 1...\n ")
+			if newMS_Role := MS_Assigner(localIP, peerUpdate.Peers); newMS_Role != MS_role {
+				MS_role = newMS_Role
+				masterSlaveRoleTimer.Reset(1)
 			}
 		case ordersToSlaves = <-ordersToSlavesChan:
 		case newOrdersFromMaster := <-receiveOrdersChan:
 			if !reflect.DeepEqual(newOrdersFromMaster, ordersFromMaster) {
-				ordersFromMaster = newOrdersFromMaster
 				switch MS_role {
 				case dt.MS_Master:
 				case dt.MS_Slave:
-					fmt.Printf("MS, deadlock 2! ")
-					ordersFromMasterChan <- ordersFromMaster
-					fmt.Printf("... kidding, no MS deadlock 2...\n ")
+					ordersFromMaster = newOrdersFromMaster
+					ordersFromMasterTimer.Reset(1)
 				}
 			}
-		case <-timer.C:
+		case <-broadCastTimer.C:
 			switch MS_role {
 			case dt.MS_Slave:
 			case dt.MS_Master:
 				transmittOrdersChan <- ordersToSlaves
-				timer.Reset(BROADCAST_FREQ * time.Millisecond)
+				broadCastTimer.Reset(BROADCAST_FREQ)
+			}
+		case <-masterSlaveRoleTimer.C:
+			select {
+			case masterOrSlaveChan <- MS_role:
+			default:
+				masterSlaveRoleTimer.Reset(1)
+			}
+		case <-ordersFromMasterTimer.C:
+			select {
+			case ordersFromMasterChan <- ordersFromMaster:
+			default:
+				ordersFromMasterTimer.Reset(1)
 			}
 		}
 	}
