@@ -19,12 +19,12 @@ type ElevDataJSON struct {
 	CabRequests [N_FLOORS]bool `json:"cabRequests"`
 }
 
-type AllElevDataJSON map[string]ElevDataJSON
-
 type AllElevDataJSON_withID struct {
 	ID      string          `json:"id"`
 	AllData AllElevDataJSON `json:"allData"`
 }
+type AllElevDataJSON map[string]ElevDataJSON
+
 
 type CostFuncInput struct {
 	HallRequests [N_FLOORS][2]bool `json:"hallRequests"`
