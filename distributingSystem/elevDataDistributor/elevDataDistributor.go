@@ -8,16 +8,16 @@ import (
 
 // Statemachine for Distributor
 func DataDistributor(localIP string,
-	allElevData_fromP2P <-chan dt.AllElevDataJSON_withID,
-	localElevData <-chan dt.ElevDataJSON,
-	HallOrderArray <-chan [dt.N_FLOORS][2]bool,
-	allElevData_toP2P chan<- dt.AllElevDataJSON,
-	WorldView_toAssigner chan<- dt.CostFuncInput,
-	peerUpdateChan <-chan peers.PeerUpdate,
+	nodesInfoFromNTWCh <-chan dt.AllNodeInfoWithSenderIP,
+	localElevDataCh <-chan dt.ElevData,
+	HallOrderArrayCh <-chan [dt.N_FLOORS][2]bool,
+	nodeInfoToNTWCh chan<- []dt.NodeInfo,
+	costFuncInputCh chan<- dt.CostFuncInputSlice,
+	peerUpdateCh <-chan peers.PeerUpdate,
 ) {
 	//init local Data Matrix with local ID
-	Local_DataMatrix := make(dt.AllElevDataJSON)
-	currentWorldView := dt.CostFuncInput{}
+	localNodesInfo := map[string]dt.ElevData{}
+	costFuncInputSlice := dt.CostFuncInputSlice{}
 	peerList := peers.PeerUpdate{}
 
 	worldViewTimer := time.NewTimer(1)
@@ -27,44 +27,45 @@ func DataDistributor(localIP string,
 
 	for {
 		select {
-		case peerList = <-peerUpdateChan:
-		case DataFromP2P := <-allElevData_fromP2P:
+		case peerList = <-peerUpdateCh:
+		case NTWData := <-nodesInfoFromNTWCh:
 
-			recivedID := DataFromP2P.ID
-			recivedData := DataFromP2P.AllData[recivedID]
+			senderIP := NTWData.SenderIP
+			senderNodesInfo := dt.NodeInfoSliceToMap(NTWData.AllNodeInfo)
 
-			Local_DataMatrix[recivedID] = recivedData
+			localNodesInfo[senderIP] = senderNodesInfo[senderIP]
 			allElevDataTimer.Reset(1)
 
-		case localData := <-localElevData:
-			Local_DataMatrix[localIP] = localData
+		case elevData := <-localElevDataCh:
+			localNodesInfo[localIP] = elevData
 			allElevDataTimer.Reset(1)
 
-		case orders := <-HallOrderArray:
-			data_aliveNodes := make(dt.AllElevDataJSON)
-			for _, nodeID := range peerList.Peers {
-				if Local_DataMatrix[nodeID] != (dt.ElevDataJSON{}) {
-					data_aliveNodes[nodeID] = Local_DataMatrix[nodeID]
+		case orders := <-HallOrderArrayCh:
+			aliveNodesInfo := map[string]dt.ElevData{}
+			for _, nodeIP := range peerList.Peers {
+				if localNodesInfo[nodeIP] != (dt.ElevData{}) {
+					aliveNodesInfo[nodeIP] = localNodesInfo[nodeIP]
 				}
 			}
 
-			if len(data_aliveNodes) != 0 {
-				currentWorldView = dt.CostFuncInput{
+			if len(aliveNodesInfo) > 0 {
+				costFuncInputSlice = dt.CostFuncInputSlice{
 					HallRequests: orders,
-					States:       data_aliveNodes,
+					States:       dt.NodeInfoMapToSlice(aliveNodesInfo),
 				}
 				worldViewTimer.Reset(1)
 			}
 			allElevDataTimer.Reset(1)
 		case <-worldViewTimer.C:
 			select {
-			case WorldView_toAssigner <- currentWorldView:
+			case costFuncInputCh <- costFuncInputSlice:
+
 			default:
 				worldViewTimer.Reset(1)
 			}
 		case <-allElevDataTimer.C:
 			select {
-			case allElevData_toP2P <- Local_DataMatrix:
+			case nodeInfoToNTWCh <- dt.NodeInfoMapToSlice(localNodesInfo):
 			default:
 				allElevDataTimer.Reset(1)
 			}

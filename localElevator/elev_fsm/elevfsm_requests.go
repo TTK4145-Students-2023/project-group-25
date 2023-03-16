@@ -51,42 +51,42 @@ func requests_chooseDirection(e Elevator) DirnBehaviourPair {
 	switch e.Dirn {
 	case elevio.MD_Up:
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
 		}
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_DOOR_OPEN}
 		}
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
 
 	case elevio.MD_Down:
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
 		}
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_DOOR_OPEN}
 		}
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
 
 	case elevio.MD_Stop: // there should only be one request in the Stop case. Checking up or down first is arbitrary.
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_DOOR_OPEN}
 		}
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
 		}
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
 
 	default:
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
 	}
 }
 
@@ -109,7 +109,7 @@ func requests_shouldStop(e Elevator) bool {
 }
 
 func requests_getHallOrdersExecuted(e Elevator) []elevio.ButtonEvent {
-	if e.Config.ClearRequestVariant == CV_All {
+	if e.Config.ClearRequestVariant == CV_ALL {
 		return []elevio.ButtonEvent{
 			{Floor: e.Floor, Button: elevio.BT_HallDown},
 			{Floor: e.Floor, Button: elevio.BT_HallUp}}

@@ -1,90 +1,88 @@
 package P2P
 
 import (
-	"fmt"
 	"project/Network/Utilities/bcast"
-	PP "project/Network/printing"
 	dt "project/commonDataTypes"
 	"reflect"
 	"time"
 )
 
-const BROADCAST_FREQ = 100 * time.Millisecond
-
 func P2Pntw(localIP string,
-	localWorldViewChan <-chan dt.AllElevDataJSON,
-	localRequestStateMatrixChan <-chan dt.RequestStateMatrix,
-	externalWorldViewChan chan<- dt.AllElevDataJSON_withID,
-	externalRequestStateMatrixChan chan<- dt.RequestStateMatrix_with_ID,
+	nodeInfoToNTWCh <-chan []dt.NodeInfo,
+	NOStoNTWCh <-chan []dt.NodeOrderStates,
+	nodesInfoFromNTWCh chan<- dt.AllNodeInfoWithSenderIP,
+	allNOSfromNTWCh chan<- dt.AllNOS_WithSenderIP,
 ) {
 	var (
-		transmittWorldVeiw          = make(chan dt.AllElevDataJSON_withID)
-		transmittRequestStateMatrix = make(chan dt.RequestStateMatrix_with_ID)
-		receiveWorldView            = make(chan dt.AllElevDataJSON_withID)
-		receiveRequestStateMatrix   = make(chan dt.RequestStateMatrix_with_ID)
+		transmittNodesInfo       = make(chan dt.AllNodeInfoWithSenderIP)
+		transmittNodeOrderStates = make(chan dt.AllNOS_WithSenderIP)
+		receiveNodesInfo         = make(chan dt.AllNodeInfoWithSenderIP)
+		receiveNodeOrderStates   = make(chan dt.AllNOS_WithSenderIP)
 	)
 
-	localWorldView := dt.AllElevDataJSON{}
-	localRequestStateMatrix := dt.RequestStateMatrix{}
+	localNodesInfo := map[string]dt.ElevData{}
+	localNOS := map[string][dt.N_FLOORS][2]dt.OrderState{}
 
-	worldView := dt.AllElevDataJSON_withID{}
-	requestStateMatrix := dt.RequestStateMatrix_with_ID{}
+	NodesInfo := dt.AllNodeInfoWithSenderIP{}
+	NOS := dt.AllNOS_WithSenderIP{}
 
 	//set timer
-	broadCastTimer := time.NewTimer(BROADCAST_FREQ)
-	reqStateMatrixTimer := time.NewTimer(1)
-	reqStateMatrixTimer.Stop()
-	worldViewTimer := time.NewTimer(1)
-	worldViewTimer.Stop()
+	broadCastTimer := time.NewTimer(dt.BROADCAST_RATE)
+	NOSTimer := time.NewTimer(1)
+	NOSTimer.Stop()
+	nodesInfoTimer := time.NewTimer(1)
+	nodesInfoTimer.Stop()
 
 	// Receive from NTW
-	go bcast.Receiver(15667, receiveWorldView)
-	go bcast.Receiver(15668, receiveRequestStateMatrix)
+	go bcast.Receiver(15667, receiveNodesInfo)
+	go bcast.Receiver(15668, receiveNodeOrderStates)
 
 	// Send to NTW
-	go bcast.Transmitter(15667, transmittWorldVeiw)
-	go bcast.Transmitter(15668, transmittRequestStateMatrix)
+	go bcast.Transmitter(15667, transmittNodesInfo)
+	go bcast.Transmitter(15668, transmittNodeOrderStates)
 
-	RSM := ""
-	WW := ""
+	// RSM := ""
+	// WW := ""
 
 	for {
 		select {
-		case localRequestStateMatrix = <-localRequestStateMatrixChan:
-			RSM = PP.RSM_toString(localRequestStateMatrix)
-			fmt.Printf(RSM + "/n" + WW)
-		case localWorldView = <-localWorldViewChan:
-			WW = PP.WW_toString(localWorldView)
-			fmt.Printf(RSM + "/n" + WW)
-		case newRequestStateMatrix := <-receiveRequestStateMatrix:
-			senderData := newRequestStateMatrix.RequestMatrix
-			senderIP := newRequestStateMatrix.IpAdress
-			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localRequestStateMatrix[senderIP]) {
-				requestStateMatrix = newRequestStateMatrix
-				reqStateMatrixTimer.Reset(1)
+		case newNOStoNTW := <-NOStoNTWCh:
+			localNOS = dt.NOSSliceToMap(newNOStoNTW)
+			// RSM = PP.RSM_toString(localRequestStateMatrix)
+			// fmt.Printf(RSM + "/n" + WW)
+		case newNodeInfoToNTW := <-nodeInfoToNTWCh:
+			localNodesInfo = dt.NodeInfoSliceToMap(newNodeInfoToNTW)
+			// WW = PP.WW_toString(localWorldView)
+			// fmt.Printf(RSM + "/n" + WW)
+		case newNodeOrderStates := <-receiveNodeOrderStates:
+			senderData := dt.NOSSliceToMap(newNodeOrderStates.AllNOS)
+			senderIP := newNodeOrderStates.SenderIP
+			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localNOS[senderIP]) {
+				NOS = newNodeOrderStates
+				NOSTimer.Reset(1)
 			}
-		case newWorldView := <-receiveWorldView:
-			senderData := newWorldView.AllData
-			senderIP := newWorldView.ID
-			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localWorldView[senderIP]) {
-				worldView = newWorldView
-				worldViewTimer.Reset(1)
+		case newNodesInfo := <-receiveNodesInfo:
+			senderData := dt.NodeInfoSliceToMap(newNodesInfo.AllNodeInfo)
+			senderIP := newNodesInfo.SenderIP
+			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localNodesInfo[senderIP]) {
+				NodesInfo = newNodesInfo
+				nodesInfoTimer.Reset(1)
 			}
 		case <-broadCastTimer.C:
-			transmittWorldVeiw <- dt.AllElevDataJSON_withID{ID: localIP, AllData: localWorldView}
-			transmittRequestStateMatrix <- dt.RequestStateMatrix_with_ID{IpAdress: localIP, RequestMatrix: localRequestStateMatrix}
-			broadCastTimer.Reset(BROADCAST_FREQ)
-		case <-worldViewTimer.C:
+			transmittNodesInfo <- dt.AllNodeInfoWithSenderIP{SenderIP: localIP, AllNodeInfo: dt.NodeInfoMapToSlice(localNodesInfo)}
+			transmittNodeOrderStates <- dt.AllNOS_WithSenderIP{SenderIP: localIP, AllNOS: dt.NOSMapToSlice(localNOS)}
+			broadCastTimer.Reset(dt.BROADCAST_RATE)
+		case <-nodesInfoTimer.C:
 			select {
-			case externalWorldViewChan <- worldView:
+			case nodesInfoFromNTWCh <- NodesInfo:
 			default:
-				worldViewTimer.Reset(1)
+				nodesInfoTimer.Reset(1)
 			}
-		case <-reqStateMatrixTimer.C:
+		case <-NOSTimer.C:
 			select {
-			case externalRequestStateMatrixChan <- requestStateMatrix:
+			case allNOSfromNTWCh <- NOS:
 			default:
-				reqStateMatrixTimer.Reset(1)
+				NOSTimer.Reset(1)
 			}
 		}
 	}
