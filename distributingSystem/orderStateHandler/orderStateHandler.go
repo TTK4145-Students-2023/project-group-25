@@ -162,3 +162,48 @@ func ConfirmedOrdersToHallOrder(allNOSMap map[string][dt.N_FLOORS][2]dt.OrderSta
 	}
 	return Local_HallOrderArray
 }
+
+// only if we are the node that is reconnecting
+func ReconnectNodeOrders(peerList peers.PeerUpdate, localData map[string][dt.N_FLOORS][2]dt.OrderState, localIP string) {
+
+	newNode := peerList.New
+
+	if newNode == localIP {
+		localStateArray := localData[localIP]
+		for floor := range localData[localIP] {
+			for btn_UpDown, localNode_state := range localData[localIP][floor] {
+				switch localNode_state {
+				case "none":
+				case "new":
+				case "confirmed":
+					localStateArray[floor][btn_UpDown] = "new"
+					localData[localIP] = localStateArray
+				}
+			}
+		}
+	}
+}
+
+// if a new elevator enters our network
+func MergeNewNodeOrders(peerList peers.PeerUpdate, localData map[string][dt.N_FLOORS][2]dt.OrderState) {
+
+	// Iterate through the list of node IDs
+	for _, nodeID := range peerList.Peers {
+		if nodeID == peerList.New { //skip new node
+			continue
+		}
+		nodeStateArray := localData[nodeID]
+
+		for floor := range localData[nodeID] {
+			for btn_UpDown, state := range localData[nodeID][floor] {
+				switch state {
+				case "none":
+				case "new":
+				case "confirmed":
+					nodeStateArray[floor][btn_UpDown] = "new"
+					localData[nodeID] = nodeStateArray
+				}
+			}
+		}
+	}
+}
