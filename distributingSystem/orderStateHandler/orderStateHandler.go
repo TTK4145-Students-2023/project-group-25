@@ -32,13 +32,10 @@ func OrderStateHandler(localIP string,
 	for {
 		select {
 		case peerList = <-peerUpdateCh:
-			for _, nodeID := range peerList.Peers {
-				if _, valInMap := localNodeOrderStates[nodeID]; !valInMap {
-					localNodeOrderStates[nodeID] = [dt.N_FLOORS][2]dt.OrderState{{STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}}
-					reqStateMatrixTimer.Reset(1)
-					hallOrderArrayTimer.Reset(1)
-				}
-			}
+			MergeNewNodeOrders(peerList, localNodeOrderStates)
+			reqStateMatrixTimer.Reset(1)
+			hallOrderArrayTimer.Reset(1)
+
 		case allNOSfromP2P := <-allNOSfromNTWCh:
 			senderIP := allNOSfromP2P.SenderIP
 			senderNOS := dt.NOSSliceToMap(allNOSfromP2P.AllNOS)
@@ -186,22 +183,28 @@ func ReconnectNodeOrders(peerList peers.PeerUpdate, localData map[string][dt.N_F
 
 // if a new elevator enters our network
 func MergeNewNodeOrders(peerList peers.PeerUpdate, localData map[string][dt.N_FLOORS][2]dt.OrderState) {
-
+	for ip := range localData {
+		for _, ipLost := range peerList.Lost {
+			if ip == ipLost {
+				delete(localData, ipLost)
+			}
+		}
+	}
 	// Iterate through the list of node IDs
 	for _, nodeID := range peerList.Peers {
-		if nodeID == peerList.New { //skip new node
-			continue
-		}
-		nodeStateArray := localData[nodeID]
-
-		for floor := range localData[nodeID] {
-			for btn_UpDown, state := range localData[nodeID][floor] {
-				switch state {
-				case "none":
-				case "new":
-				case "confirmed":
-					nodeStateArray[floor][btn_UpDown] = "new"
-					localData[nodeID] = nodeStateArray
+		if _, valInMap := localData[nodeID]; !valInMap {
+			localData[nodeID] = [dt.N_FLOORS][2]dt.OrderState{{STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}}
+		} else {
+			nodeStateArray := localData[nodeID]
+			for floor := range localData[nodeID] {
+				for btn_UpDown, state := range localData[nodeID][floor] {
+					switch state {
+					case "none":
+					case "new":
+					case "confirmed":
+						nodeStateArray[floor][btn_UpDown] = "new"
+						localData[nodeID] = nodeStateArray
+					}
 				}
 			}
 		}
