@@ -244,3 +244,48 @@ func NewNodeOnNTW(peerList peers.PeerUpdate, inputData dt.RequestStateMatrix, lo
 	}
 
 }
+
+// only if we are the node that is reconnecting
+func ReconnectNodeOrders(peerList peers.PeerUpdate, localData dt.RequestStateMatrix, localIP string) {
+
+	newNode := peerList.New
+
+	if newNode == localIP {
+		localStateArray := localData[localIP]
+		for floor := range localData[localIP] {
+			for btn_UpDown, localNode_state := range localData[localIP][floor] {
+				switch localNode_state {
+				case STATE_none:
+				case STATE_new:
+				case STATE_confirmed:
+					localStateArray[floor][btn_UpDown] = STATE_new
+					localData[localIP] = localStateArray
+				}
+			}
+		}
+	}
+}
+
+// if a new elevator enters our network
+func MergeNewNodeOrders(peerList peers.PeerUpdate, localData dt.RequestStateMatrix) {
+
+	// Iterate through the list of node IDs
+	for _, nodeID := range peerList.Peers {
+		if nodeID == peerList.New { //skip new node
+			continue
+		}
+		nodeStateArray := localData[nodeID]
+
+		for floor := range localData[nodeID] {
+			for btn_UpDown, state := range localData[nodeID][floor] {
+				switch state {
+				case STATE_none:
+				case STATE_new:
+				case STATE_confirmed:
+					nodeStateArray[floor][btn_UpDown] = STATE_new
+					localData[nodeID] = nodeStateArray
+				}
+			}
+		}
+	}
+}
