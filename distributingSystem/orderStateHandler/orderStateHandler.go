@@ -32,6 +32,7 @@ func OrderStateHandler(localIP string,
 	for {
 		select {
 		case peerList = <-peerUpdateChan:
+			//initialize new nodes
 			for _, nodeID := range peerList.Peers {
 				if _, valInMap := Local_ReqStatMatrix[nodeID]; !valInMap {
 					Local_ReqStatMatrix[nodeID] = dt.SingleNode_requestStates{{STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}, {STATE_none, STATE_none}}
@@ -39,6 +40,7 @@ func OrderStateHandler(localIP string,
 					hallOrderArrayTimer.Reset(1)
 				}
 			}
+
 		case matrix_fromP2P := <-ReqStateMatrix_fromP2P:
 			// update external states based on sender ID
 			Local_ReqStatMatrix[matrix_fromP2P.IpAdress] = matrix_fromP2P.RequestMatrix[matrix_fromP2P.IpAdress]
@@ -160,4 +162,85 @@ func ConfirmedOrdersToHallOrder(requests dt.RequestStateMatrix, localID string) 
 		}
 	}
 	return Local_HallOrderArray
+}
+
+// only if we are the node that is reconnecting
+
+func reconnectToNTW(peerList peers.PeerUpdate, inputData dt.RequestStateMatrix, localData dt.RequestStateMatrix, localIP string) {
+
+	for _, nodeID := range peerList.Peers {
+		// Skip the local node
+		if nodeID == localIP {
+			continue
+		}
+		// Compare the requestStates from the other nodes with the Local requestStates
+		for floor := range inputData[nodeID] {
+			for btn_UpDown, other_state := range inputData[nodeID][floor] {
+
+				localStateArray := localData[localIP]
+				switch other_state {
+				case STATE_none:
+					if localStateArray[floor][btn_UpDown] == STATE_none {
+						localStateArray[floor][btn_UpDown] = STATE_none
+						localData[localIP] = localStateArray
+						elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, false)
+						// reqStateMatrixTimer.Reset(1)
+						// hallOrderArrayTimer.Reset(1)
+					}
+				case STATE_new:
+					localStateArray[floor][btn_UpDown] = STATE_new
+					localData[localIP] = localStateArray
+					// reqStateMatrixTimer.Reset(1)
+					// hallOrderArrayTimer.Reset(1)
+
+				case STATE_confirmed:
+					localStateArray[floor][btn_UpDown] = STATE_confirmed
+					localData[localIP] = localStateArray
+					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true)
+					// reqStateMatrixTimer.Reset(1)
+					// hallOrderArrayTimer.Reset(1)
+
+				}
+			}
+		}
+	}
+}
+
+// if a new elevator enters our network
+func NewNodeOnNTW(peerList peers.PeerUpdate, inputData dt.RequestStateMatrix, localData dt.RequestStateMatrix, localIP string) {
+
+	newNode := peerList.New
+
+	// Compare the requestStates from the new node with the Local requestStates
+
+	for floor := range inputData[newNode] {
+		for btn_UpDown, newNode_state := range inputData[newNode][floor] {
+
+			localStateArray := localData[localIP]
+
+			switch newNode_state {
+			case STATE_none:
+				if localStateArray[floor][btn_UpDown] == STATE_none {
+					localStateArray[floor][btn_UpDown] = STATE_none
+					localData[localIP] = localStateArray
+					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, false)
+					// reqStateMatrixTimer.Reset(1)
+					// hallOrderArrayTimer.Reset(1)
+				}
+			case STATE_new:
+				localStateArray[floor][btn_UpDown] = STATE_new
+				localData[localIP] = localStateArray
+				// reqStateMatrixTimer.Reset(1)
+				// hallOrderArrayTimer.Reset(1)
+
+			case STATE_confirmed:
+				localStateArray[floor][btn_UpDown] = STATE_confirmed
+				localData[localIP] = localStateArray
+				elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true)
+				// reqStateMatrixTimer.Reset(1)
+				// hallOrderArrayTimer.Reset(1)
+			}
+		}
+	}
+
 }
