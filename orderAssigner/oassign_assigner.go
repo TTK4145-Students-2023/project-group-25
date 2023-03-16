@@ -13,13 +13,13 @@ import (
 // This means they must start with a capital letter, so we need to use field renaming struct tags to make them camelCase
 
 func OrderAssigner(localIP string,
-	masterSlaveRoleChan <-chan dt.MasterSlaveRole,
-	ordersFromDistributor <-chan dt.CostFuncInput, // Input from order distributor
-	ordersFromMaster <-chan map[string][dt.N_FLOORS][2]bool, // Input read from Master-Slave network module
-	ordersToSlavesChan chan<- map[string][dt.N_FLOORS][2]bool, // Input written to Master-Slave network module
-	localOrders chan<- [dt.N_FLOORS][2]bool) { // Input to local Elevator FSM
+	masterSlaveRoleCh <-chan dt.MasterSlaveRole,
+	costFuncInputCh <-chan dt.CostFuncInputSlice, // Input from order distributor
+	ordersFromMasterCh <-chan []dt.SlaveOrders, // Input read from Master-Slave network module
+	ordersToSlavesCh chan<- []dt.SlaveOrders, // Input written to Master-Slave network module
+	ordersElevCh chan<- [dt.N_FLOORS][2]bool) { // Input to local Elevator FSM
 
-	localHallOrders := [dt.N_FLOORS][2]bool{}
+	elevHallOrders := [dt.N_FLOORS][2]bool{}
 	ordersToSlaves := map[string][dt.N_FLOORS][2]bool{}
 	localOrdersTimer := time.NewTimer(1)
 	localOrdersTimer.Stop()
@@ -36,15 +36,16 @@ func OrderAssigner(localIP string,
 		panic("OS not supported")
 	}
 
-	assignerBehaviour := dt.MS_Slave
+	assignerBehaviour := dt.MS_SLAVE
 	for {
 		select {
-		case assignerBehaviour = <-masterSlaveRoleChan:
+		case assignerBehaviour = <-masterSlaveRoleCh:
 			fmt.Printf("You are now %s! \n", string(assignerBehaviour))
-		case input := <-ordersFromDistributor:
+		case costFuncInput := <-costFuncInputCh:
+			input := dt.SliceToCostFuncInput(costFuncInput)
 			switch assignerBehaviour {
-			case dt.MS_Slave:
-			case dt.MS_Master:
+			case dt.MS_SLAVE:
+			case dt.MS_MASTER:
 				jsonBytes, err := json.Marshal(input)
 				if err != nil {
 					fmt.Println("json.Marshal error: ", err)
@@ -62,31 +63,35 @@ func OrderAssigner(localIP string,
 					fmt.Println("json.Unmarshal error: ", err)
 					break
 				}
-				if newLocalHallOrders, ok := output[localIP]; ok {
-					localHallOrders = newLocalHallOrders
+				if newElevHallOrders, ok := output[localIP]; ok {
+					elevHallOrders = newElevHallOrders
 					localOrdersTimer.Reset(1)
 				}
 				ordersToSlaves = output
 				ordersToSlavesTimer.Reset(1)
 			}
-		case newOrders := <-ordersFromMaster:
+		case ordersFromMaster := <-ordersFromMasterCh:
+
 			switch assignerBehaviour {
-			case dt.MS_Master:
-			case dt.MS_Slave:
-				if newLocalHallOrders, ok := newOrders[localIP]; ok {
-					localHallOrders = newLocalHallOrders
-					localOrdersTimer.Reset(1)
+			case dt.MS_MASTER:
+			case dt.MS_SLAVE:
+
+				for _, newHallOrder := range ordersFromMaster {
+					if newHallOrder.IP == localIP {
+						elevHallOrders = newHallOrder.Orders
+						localOrdersTimer.Reset(1)
+					}
 				}
 			}
 		case <-ordersToSlavesTimer.C:
 			select {
-			case ordersToSlavesChan <- ordersToSlaves:
+			case ordersToSlavesCh <- dt.SlaveOrdersMapToSlice(ordersToSlaves):
 			default:
 				ordersToSlavesTimer.Reset(1)
 			}
 		case <-localOrdersTimer.C:
 			select {
-			case localOrders <- localHallOrders:
+			case ordersElevCh <- elevHallOrders:
 			default:
 				localOrdersTimer.Reset(1)
 			}

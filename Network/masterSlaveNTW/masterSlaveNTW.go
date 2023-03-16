@@ -11,12 +11,10 @@ import (
 // datatypes
 type AssignedOrders map[string][]bool
 
-const BROADCAST_FREQ = 100 * time.Millisecond //ms
-
 func MasterSlaveNTW(localIP string,
 	peerUpdateChan chan peers.PeerUpdate,
-	ordersToSlavesChan <-chan map[string][dt.N_FLOORS][2]bool,
-	ordersFromMasterChan chan<- map[string][dt.N_FLOORS][2]bool,
+	ordersToSlavesChan <-chan []dt.SlaveOrders,
+	ordersFromMasterChan chan<- []dt.SlaveOrders,
 	masterOrSlaveChan chan dt.MasterSlaveRole,
 ) {
 	var (
@@ -33,7 +31,7 @@ func MasterSlaveNTW(localIP string,
 	ordersFromMasterTimer := time.NewTimer(1)
 	ordersFromMasterTimer.Stop()
 
-	MS_role := dt.MS_Slave
+	MS_role := dt.MS_SLAVE
 	ordersToSlaves := map[string][dt.N_FLOORS][2]bool{}
 	ordersFromMaster := map[string][dt.N_FLOORS][2]bool{}
 
@@ -44,21 +42,22 @@ func MasterSlaveNTW(localIP string,
 				MS_role = newMS_Role
 				masterSlaveRoleTimer.Reset(1)
 			}
-		case ordersToSlaves = <-ordersToSlavesChan:
+		case newOrdersToSlaves := <-ordersToSlavesChan:
+			ordersToSlaves = dt.SlaveOrdersSliceToMap(newOrdersToSlaves)
 		case newOrdersFromMaster := <-receiveOrdersChan:
 			if !reflect.DeepEqual(newOrdersFromMaster, ordersFromMaster) {
 				switch MS_role {
-				case dt.MS_Master:
-				case dt.MS_Slave:
+				case dt.MS_MASTER:
+				case dt.MS_SLAVE:
 					ordersFromMaster = newOrdersFromMaster
 					ordersFromMasterTimer.Reset(1)
 				}
 			}
 		case <-broadCastTimer.C:
-			broadCastTimer.Reset(BROADCAST_FREQ)
+			broadCastTimer.Reset(dt.BROADCAST_RATE)
 			switch MS_role {
-			case dt.MS_Slave:
-			case dt.MS_Master:
+			case dt.MS_SLAVE:
+			case dt.MS_MASTER:
 				transmittOrdersChan <- ordersToSlaves
 			}
 		case <-masterSlaveRoleTimer.C:
@@ -69,7 +68,7 @@ func MasterSlaveNTW(localIP string,
 			}
 		case <-ordersFromMasterTimer.C:
 			select {
-			case ordersFromMasterChan <- ordersFromMaster:
+			case ordersFromMasterChan <- dt.SlaveOrdersMapToSlice(ordersFromMaster):
 			default:
 				ordersFromMasterTimer.Reset(1)
 			}

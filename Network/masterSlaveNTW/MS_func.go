@@ -36,9 +36,9 @@ func MS_Assigner(localIP string, P2P_IP []string) dt.MasterSlaveRole {
 
 	maxIP := Max(ipP2PintArray)
 
-	MS_role := dt.MS_Slave
+	MS_role := dt.MS_SLAVE
 	if maxIP <= ipLocalLastByteInt {
-		MS_role = dt.MS_Master
+		MS_role = dt.MS_MASTER
 	}
 	return MS_role
 }
