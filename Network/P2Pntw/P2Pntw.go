@@ -1,7 +1,9 @@
 package P2P
 
 import (
+	"fmt"
 	"project/Network/Utilities/bcast"
+	PP "project/Network/printing"
 	dt "project/commonDataTypes"
 	"reflect"
 	"time"
@@ -41,19 +43,19 @@ func P2Pntw(localIP string,
 	go bcast.Transmitter(15667, transmittNodesInfo)
 	go bcast.Transmitter(15668, transmittNodeOrderStates)
 
-	// RSM := ""
-	// WW := ""
+	RSM := ""
+	WW := ""
 
 	for {
 		select {
 		case newNOStoNTW := <-NOStoNTWCh:
 			localNOS = dt.NOSSliceToMap(newNOStoNTW)
-			// RSM = PP.RSM_toString(localRequestStateMatrix)
-			// fmt.Printf(RSM + "/n" + WW)
+			RSM = PP.RSM_toString(localNOS)
+			fmt.Printf(RSM + "\n" + WW)
 		case newNodeInfoToNTW := <-nodeInfoToNTWCh:
 			localNodesInfo = dt.NodeInfoSliceToMap(newNodeInfoToNTW)
-			// WW = PP.WW_toString(localWorldView)
-			// fmt.Printf(RSM + "/n" + WW)
+			WW = PP.WW_toString(localNodesInfo)
+			fmt.Printf(RSM + "\n" + WW)
 		case newNodeOrderStates := <-receiveNodeOrderStates:
 			senderData := dt.NOSSliceToMap(newNodeOrderStates.AllNOS)
 			senderIP := newNodeOrderStates.SenderIP

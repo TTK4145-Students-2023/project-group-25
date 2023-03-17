@@ -1,106 +1,105 @@
 package printing
 
-// import (
-// 	"fmt"
-// 	dt "project/commonDataTypes"
-// 	"sort"
-// 	"strings"
-// )
+import (
+	"fmt"
+	dt "project/commonDataTypes"
+	"sort"
+)
 
-// // States for hall requests
-// const (
-// 	STATE_none      dt.RequestState = 0
-// 	STATE_new       dt.RequestState = 1
-// 	STATE_confirmed dt.RequestState = 2
-// )
+// States for hall requests
+const (
+	STATE_NONE      dt.OrderState = "none"
+	STATE_NEW       dt.OrderState = "new"
+	STATE_CONFIRMED dt.OrderState = "confirmed"
+)
 
-// func WW_toString(WW dt.AllElevDataJSON) string {
-// 	// Create the separator row
-// 	separatorRow := "-------------------------------------------------------------------------------------------------------\n"
-// 	text := "####################################################################################################\n"
-// 	text += "________________________________________WorldView________________________________________________\n\n"
+func WW_toString(WW map[string]dt.ElevData) string {
+	// Create the separator row
+	separatorRow := "-------------------------------------------------------------------------------------------------------\n"
+	text := "####################################################################################################\n"
+	text += "________________________________________WorldView________________________________________________\n\n"
 
-// 	// Find the maximum length of any ID.
-// 	ColLen := 14
+	// Find the maximum length of any ID.
+	ColLen := 14
 
-// 	// Print the header row.
-// 	text = text + fmt.Sprintf("%-*s | Behavior       | Floor          | Direction      | Cab Requests\n", ColLen, "ID")
-// 	text += separatorRow
+	// Print the header row.
+	text = text + fmt.Sprintf("%-*s | Behavior       | Floor          | Direction      | Cab Requests\n", ColLen, "ID")
+	text += separatorRow
 
-// 	// Print each elevator's data.
-// 	ids := []string{}
-// 	for id := range WW {
-// 		ids = append(ids, id)
-// 	}
-// 	sort.Strings(ids)
-// 	for _, id := range ids {
-// 		text = text + fmt.Sprintf("%-*s | %-*s | %-*d | %-*s | %v\n",
-// 			ColLen, id,
-// 			ColLen, WW[id].Behavior,
-// 			ColLen, WW[id].Floor,
-// 			ColLen, WW[id].Direction,
-// 			WW[id].CabRequests)
-// 	}
-// 	text += separatorRow
-// 	// text = text + fmt.Sprintf("\nHallrequest: %v \n", WW.HallRequests)
-// 	// text += separatorRow
-// 	text = text + "\n####################################################################################################\n"
-// 	return text
-// }
+	// Print each elevator's data.
+	ids := []string{}
+	for id := range WW {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		text = text + fmt.Sprintf("%-*s | %-*s | %-*d | %-*s | %v\n",
+			ColLen, id,
+			ColLen, WW[id].Behavior,
+			ColLen, WW[id].Floor+1,
+			ColLen, WW[id].Direction,
+			WW[id].CabRequests)
+	}
+	text += separatorRow
+	// text = text + fmt.Sprintf("\nHallrequest: %v \n", WW.HallRequests)
+	// text += separatorRow
+	text = text + "\n####################################################################################################\n"
+	return text
+}
 
-// func RSM_toString(RSM dt.RequestStateMatrix) string {
-// 	text := "####################################################################################################\n"
-// 	text = text + "______________________________________________REQ MAT________________________________________________\n\n"
-// 	separatorRow := "-------------------------------------------------------------------------------------------------------\n"
+func RSM_toString(RSM map[string][dt.N_FLOORS][2]dt.OrderState) string {
+	text := "####################################################################################################\n"
+	text = text + "______________________________________________REQ MAT________________________________________________\n\n"
+	separatorRow := "-------------------------------------------------------------------------------------------------------\n"
 
-// 	// Build the header
-// 	header := []string{"ID", "|1_UP", "|1_DWN", "|2_UP", "|2_DWN", "|3_UP", "|3_DWN", "|4_UP", "|4_DWN"}
-// 	var headerStr string
-// 	for _, v := range header {
-// 		headerStr += fmt.Sprintf("%-12s", v)
-// 	}
-// 	headerStr += "\n"
-// 	text = text + headerStr
-// 	text += separatorRow
+	// Build the header
+	header := []string{"ID", "|1_UP", "|1_DWN", "|2_UP", "|2_DWN", "|3_UP", "|3_DWN", "|4_UP", "|4_DWN"}
+	var headerStr string
+	for _, v := range header {
+		headerStr += fmt.Sprintf("%-12s", v)
+	}
+	headerStr += "\n"
+	text = text + headerStr
+	text += separatorRow
 
-// 	// Iterate over each elevator's data
+	// Iterate over each elevator's data
 
-// 	ids := []string{}
-// 	for id := range RSM {
-// 		ids = append(ids, id)
-// 	}
-// 	sort.Strings(ids)
-// 	for _, id := range ids {
-// 		text += fmt.Sprintf("%-12s", id)
-// 		for _, state := range RSM[id] {
-// 			switch state[0] {
-// 			case STATE_none:
-// 				text += "|NONE       "
-// 			case STATE_new:
-// 				text += "|NEW        "
-// 			case STATE_confirmed:
-// 				text += "|CONF       "
-// 			default:
-// 				text += "|UNDF       "
-// 			}
-// 			switch state[1] {
-// 			case STATE_none:
-// 				text += "|NONE       "
-// 			case STATE_new:
-// 				text += "|NEW        "
-// 			case STATE_confirmed:
-// 				text += "|CONF       "
-// 			default:
-// 				text += "|UNDF       "
-// 			}
-// 		}
-// 		text += "\n"
-// 	}
-// 	text += separatorRow
-// 	text += "#######################################################################################################\n"
+	ids := []string{}
+	for id := range RSM {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		text += fmt.Sprintf("%-12s", id)
+		for _, state := range RSM[id] {
+			switch state[0] {
+			case "none":
+				text += "|NONE       "
+			case "new":
+				text += "|NEW        "
+			case "confirmed":
+				text += "|CONF       "
+			default:
+				text += "|UNDF       "
+			}
+			switch state[1] {
+			case "none":
+				text += "|NONE       "
+			case "new":
+				text += "|NEW        "
+			case "confirmed":
+				text += "|CONF       "
+			default:
+				text += "|UNDF       "
+			}
+		}
+		text += "\n"
+	}
+	text += separatorRow
+	text += "#######################################################################################################\n"
 
-// 	return text
-// }
+	return text
+}
 
 // func OrdersToString(role dt.MasterSlaveRole, sentOrders map[string][dt.N_FLOORS][2]bool, receivedOrders map[string][dt.N_FLOORS][2]bool) string {
 

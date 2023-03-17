@@ -1,6 +1,7 @@
 package elevDataDistributor
 
 import (
+	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	"time"
@@ -15,7 +16,6 @@ func DataDistributor(localIP string,
 	costFuncInputCh chan<- dt.CostFuncInputSlice,
 	peerUpdateCh <-chan peers.PeerUpdate,
 ) {
-	//init local Data Matrix with local ID
 	localNodesInfo := map[string]dt.ElevData{}
 	costFuncInputSlice := dt.CostFuncInputSlice{}
 	peerList := peers.PeerUpdate{}
@@ -24,6 +24,17 @@ func DataDistributor(localIP string,
 	worldViewTimer.Stop()
 	allElevDataTimer := time.NewTimer(1)
 	allElevDataTimer.Stop()
+
+	//Send cabcalls to fsm if cabcall allready exist on network
+	select {
+	case NTWData := <-nodesInfoFromNTWCh:
+		senderNodesInfo := dt.NodeInfoSliceToMap(NTWData.AllNodeInfo)
+		if _, valInMap := senderNodesInfo[localIP]; valInMap {
+			cabcalls := senderNodesInfo[localIP].CabRequests
+			//send to fsm
+			fmt.Printf("\ncabcalls from NTW: %+v\n", cabcalls)
+		}
+	}
 
 	for {
 		select {
