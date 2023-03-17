@@ -1,7 +1,6 @@
 package orderStateHandler
 
 import (
-	"fmt"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
@@ -111,7 +110,6 @@ func OrderStateHandler(localIP string,
 				hallOrderArrayTimer.Reset(1)
 			}
 		case <-reqStateMatrixTimer.C:
-			fmt.Printf("sent Req: %+v\n", localNodeOrderStates)
 			select {
 			case NOStoNTWCh <- dt.NOSMapToSlice(localNodeOrderStates):
 			default:

@@ -41,8 +41,9 @@ var (
 	hallOrderArrayCh = make(chan [dt.N_FLOORS][2]bool)
 
 	// Data distributor channels
-	nodesInfoFromNTWCh = make(chan dt.AllNodeInfoWithSenderIP)
-	nodeInfoToNTWCh    = make(chan []dt.NodeInfo)
+	nodesInfoFromNTWCh  = make(chan dt.AllNodeInfoWithSenderIP)
+	nodeInfoToNTWCh     = make(chan []dt.NodeInfo)
+	cabRequestsToElevCh = make(chan [dt.N_FLOORS]bool)
 )
 
 func RunNetworkWithAllTest() {
@@ -94,7 +95,9 @@ func RunNetworkWithAllTest() {
 		hallOrderArrayCh,
 		nodeInfoToNTWCh,
 		costFuncInputCh,
-		peerUpdate_DataDistributorCh)
+		peerUpdate_DataDistributorCh,
+		cabRequestsToElevCh)
+
 	go orderStateHandler.OrderStateHandler(localIP,
 		allNOSfromNTWCh,
 		hallBtnPressCh,
@@ -111,7 +114,8 @@ func RunNetworkWithAllTest() {
 		drv_floors,
 		drv_obstr,
 		localElevDataCh,
-		hallOrdersExecutedCh)
+		hallOrdersExecutedCh,
+		cabRequestsToElevCh)
 
 	for {
 		event := <-btnPressCh

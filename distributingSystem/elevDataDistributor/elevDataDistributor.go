@@ -15,6 +15,7 @@ func DataDistributor(localIP string,
 	nodeInfoToNTWCh chan<- []dt.NodeInfo,
 	costFuncInputCh chan<- dt.CostFuncInputSlice,
 	peerUpdateCh <-chan peers.PeerUpdate,
+	cabRequestsToElevCh chan<- [dt.N_FLOORS]bool,
 ) {
 	localNodesInfo := map[string]dt.ElevData{}
 	costFuncInputSlice := dt.CostFuncInputSlice{}
@@ -25,17 +26,36 @@ func DataDistributor(localIP string,
 	allElevDataTimer := time.NewTimer(1)
 	allElevDataTimer.Stop()
 
+	initTimer := time.NewTimer(1 * time.Second)
+
 	//Send cabcalls to fsm if cabcall allready exist on network
-	select {
-	case NTWData := <-nodesInfoFromNTWCh:
-		senderNodesInfo := dt.NodeInfoSliceToMap(NTWData.AllNodeInfo)
-		if _, valInMap := senderNodesInfo[localIP]; valInMap {
-			cabcalls := senderNodesInfo[localIP].CabRequests
-			//send to fsm
-			fmt.Printf("\ncabcalls from NTW: %+v\n", cabcalls)
+	initCabCalls := [dt.N_FLOORS]bool{}
+	for initTimeOut := false; !initTimeOut; {
+		select {
+		case NTWData := <-nodesInfoFromNTWCh:
+			fmt.Printf("NodesInfoFromNTW:\n %+v\n\n", NTWData)
+			senderIP := NTWData.SenderIP
+			senderNodesInfo := dt.NodeInfoSliceToMap(NTWData.AllNodeInfo)
+
+			localNodesInfo[senderIP] = senderNodesInfo[senderIP]
+			allElevDataTimer.Reset(1)
+
+			if _, valInMap := senderNodesInfo[localIP]; valInMap {
+				for floor, order := range senderNodesInfo[localIP].CabRequests {
+					if order {
+						initCabCalls[floor] = order
+					}
+				}
+				//send to fsm
+				fmt.Printf("\ncabcalls from NTW: %+v\n", initCabCalls)
+			}
+		case <-initTimer.C:
+			initTimeOut = true
+			cabRequestsToElevCh <- initCabCalls
 		}
 	}
 
+	fmt.Println("enter normal DD")
 	for {
 		select {
 		case peerList = <-peerUpdateCh:

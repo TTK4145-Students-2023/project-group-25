@@ -54,7 +54,7 @@ func MasterSlaveNTW(localIP string,
 				}
 			}
 		case <-broadCastTimer.C:
-			broadCastTimer.Reset(dt.BROADCAST_RATE)
+			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 			switch MS_role {
 			case dt.MS_SLAVE:
 			case dt.MS_MASTER:

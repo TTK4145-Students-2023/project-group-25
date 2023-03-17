@@ -3,7 +3,6 @@ package P2P
 import (
 	"fmt"
 	"project/Network/Utilities/bcast"
-	PP "project/Network/printing"
 	dt "project/commonDataTypes"
 	"reflect"
 	"time"
@@ -29,7 +28,8 @@ func P2Pntw(localIP string,
 	NOS := dt.AllNOS_WithSenderIP{}
 
 	//set timer
-	broadCastTimer := time.NewTimer(dt.BROADCAST_RATE)
+	broadCastTimer := time.NewTimer(dt.BROADCAST_PERIOD)
+	broadCastTimer.Stop()
 	NOSTimer := time.NewTimer(1)
 	NOSTimer.Stop()
 	nodesInfoTimer := time.NewTimer(1)
@@ -43,22 +43,28 @@ func P2Pntw(localIP string,
 	go bcast.Transmitter(15667, transmittNodesInfo)
 	go bcast.Transmitter(15668, transmittNodeOrderStates)
 
-	RSM := ""
-	WW := ""
+	// RSM := ""
+	//WW := ""
 
 	for {
 		select {
 		case newNOStoNTW := <-NOStoNTWCh:
 			localNOS = dt.NOSSliceToMap(newNOStoNTW)
-			RSM = PP.RSM_toString(localNOS)
-			fmt.Printf(RSM + "\n" + WW)
+			//fmt.Printf("NOS TO NTW: %+v\n", localNOS)
+			// // RSM = PP.RSM_toString(localNOS)
+			// // fmt.Printf(RSM + "\n" + WW)
 		case newNodeInfoToNTW := <-nodeInfoToNTWCh:
 			localNodesInfo = dt.NodeInfoSliceToMap(newNodeInfoToNTW)
-			WW = PP.WW_toString(localNodesInfo)
-			fmt.Printf(RSM + "\n" + WW)
+			broadCastTimer.Reset(1)
+			//fmt.Printf("nodesInfo TO NTW: %+v\n", newNodeInfoToNTW)
+			// WW = PP.WW_toString(localNodesInfo)
+			// fmt.Printf(WW)
+			// fmt.Printf(RSM + "\n" + WW)
 		case newNodeOrderStates := <-receiveNodeOrderStates:
 			senderData := dt.NOSSliceToMap(newNodeOrderStates.AllNOS)
 			senderIP := newNodeOrderStates.SenderIP
+			//fmt.Printf("NOS from NTW: %+v\n", senderData)
+
 			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localNOS[senderIP]) {
 				NOS = newNodeOrderStates
 				NOSTimer.Reset(1)
@@ -66,14 +72,16 @@ func P2Pntw(localIP string,
 		case newNodesInfo := <-receiveNodesInfo:
 			senderData := dt.NodeInfoSliceToMap(newNodesInfo.AllNodeInfo)
 			senderIP := newNodesInfo.SenderIP
+			//fmt.Printf("nodesInfo fro NTW: %+v\n", senderData)
 			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localNodesInfo[senderIP]) {
 				NodesInfo = newNodesInfo
 				nodesInfoTimer.Reset(1)
 			}
 		case <-broadCastTimer.C:
+			fmt.Printf("nodesInfo to NTW: %+v\n", dt.AllNodeInfoWithSenderIP{SenderIP: localIP, AllNodeInfo: dt.NodeInfoMapToSlice(localNodesInfo)})
 			transmittNodesInfo <- dt.AllNodeInfoWithSenderIP{SenderIP: localIP, AllNodeInfo: dt.NodeInfoMapToSlice(localNodesInfo)}
 			transmittNodeOrderStates <- dt.AllNOS_WithSenderIP{SenderIP: localIP, AllNOS: dt.NOSMapToSlice(localNOS)}
-			broadCastTimer.Reset(dt.BROADCAST_RATE)
+			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 		case <-nodesInfoTimer.C:
 			select {
 			case nodesInfoFromNTWCh <- NodesInfo:

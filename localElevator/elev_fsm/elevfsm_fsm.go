@@ -64,7 +64,8 @@ func FSM(
 	drv_floors <-chan int,
 	drv_obstr <-chan bool,
 	elev_data chan<- dt.ElevData,
-	handler_hallOrdersExecuted chan<- []elevio.ButtonEvent) {
+	handler_hallOrdersExecuted chan<- []elevio.ButtonEvent,
+	cabRequestsToElevCh <-chan [dt.N_FLOORS]bool) {
 
 	obstr := false
 	hallOrdersExecuted := []elevio.ButtonEvent{}
@@ -78,12 +79,11 @@ func FSM(
 	}
 
 	ElevTimer := time.NewTimer(1)
-	<-ElevTimer.C
+	ElevTimer.Stop()
 
 	elevDataTimer := time.NewTimer(1)
 	hallOrdersExecutedTimer := time.NewTimer(1)
-	<-hallOrdersExecutedTimer.C
-
+	hallOrdersExecutedTimer.Stop()
 	select {
 	case e.Floor = <-drv_floors:
 	default:
@@ -99,6 +99,27 @@ func FSM(
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		e.Dirn = elevio.MD_Stop
 		e.Behaviour = EB_IDLE
+	}
+
+	e.CabRequests = <-cabRequestsToElevCh
+	for floor, order := range e.CabRequests {
+		elevio.SetButtonLamp(elevio.BT_Cab, floor, order)
+	}
+	dirnBehaviourPair := requests_chooseDirection(e)
+	if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
+		e.Dirn = dirnBehaviourPair.Dirn
+		e.Behaviour = dirnBehaviourPair.Behaviour
+		elevDataTimer.Reset(1)
+
+		switch e.Behaviour {
+		case EB_IDLE:
+		case EB_DOOR_OPEN:
+			elevio.SetDoorOpenLamp(true)
+			ElevTimer.Reset(e.Config.DoorOpenDuration_s)
+
+		case EB_MOVING:
+			elevio.SetMotorDirection(e.Dirn)
+		}
 	}
 	for {
 		select {

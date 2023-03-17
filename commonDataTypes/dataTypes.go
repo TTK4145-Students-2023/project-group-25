@@ -13,9 +13,9 @@ const (
 )
 
 const (
-	MS_MASTER      MasterSlaveRole = "master"
-	MS_SLAVE       MasterSlaveRole = "slave"
-	BROADCAST_RATE time.Duration   = 100 * time.Millisecond
+	MS_MASTER        MasterSlaveRole = "master"
+	MS_SLAVE         MasterSlaveRole = "slave"
+	BROADCAST_PERIOD time.Duration   = 300 * time.Millisecond
 )
 
 type ElevData struct {
