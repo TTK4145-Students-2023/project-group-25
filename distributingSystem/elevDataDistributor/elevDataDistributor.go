@@ -72,21 +72,22 @@ func DataDistributor(localIP string,
 			allElevDataTimer.Reset(1)
 
 		case orders := <-HallOrderArrayCh:
-			aliveNodesInfo := map[string]dt.ElevData{}
-			for _, nodeIP := range peerList.Peers {
-				if localNodesInfo[nodeIP] != (dt.ElevData{}) {
-					aliveNodesInfo[nodeIP] = localNodesInfo[nodeIP]
+			if localElevData, valInMap := localNodesInfo[localIP]; valInMap {
+				aliveNodesInfo := map[string]dt.ElevData{localIP: localElevData}
+				aliveNodesInfo[localIP] = localNodesInfo[localIP]
+				for _, nodeIP := range peerList.Peers {
+					if localNodesInfo[nodeIP] != (dt.ElevData{}) {
+						aliveNodesInfo[nodeIP] = localNodesInfo[nodeIP]
+					}
 				}
-			}
-
-			if len(aliveNodesInfo) > 0 {
 				costFuncInputSlice = dt.CostFuncInputSlice{
 					HallRequests: orders,
 					States:       dt.NodeInfoMapToSlice(aliveNodesInfo),
 				}
 				worldViewTimer.Reset(1)
+				allElevDataTimer.Reset(1)
 			}
-			allElevDataTimer.Reset(1)
+
 		case <-worldViewTimer.C:
 			select {
 			case costFuncInputCh <- costFuncInputSlice:

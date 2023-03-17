@@ -30,6 +30,7 @@ func PeerListHandler(localIP string,
 
 	for {
 		peerList := <-peerUpdateCh
+		fmt.Printf("Do we not get peerUpdate on channel?\n\n")
 		peerListSendt := [3]bool{false, false, false}
 		for peerListSendt != [3]bool{true, true, true} {
 			if !peerListSendt[0] {
@@ -51,9 +52,11 @@ func PeerListHandler(localIP string,
 				}
 			}
 			if !peerListSendt[2] {
+				fmt.Printf("in here\n\n")
 				select {
 				case peerUpdate_OrderHandler <- peerList:
 					peerListSendt[2] = true
+					fmt.Printf("not in here\n\n")
 				case peerList = <-peerUpdateCh:
 					peerListSendt = [3]bool{false, false, false}
 				default:

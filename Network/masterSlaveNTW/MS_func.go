@@ -23,7 +23,9 @@ func Max(array []int) int {
 
 // this function only checks which last byte is the biggest (can be developed)
 func MS_Assigner(localIP string, P2P_IP []string) dt.MasterSlaveRole {
-
+	if len(P2P_IP) == 0 {
+		return dt.MS_MASTER
+	}
 	localIPArr := strings.Split(localIP, ".")
 	ipLocalLastByteInt, _ := strconv.Atoi(localIPArr[len(localIPArr)-1])
 

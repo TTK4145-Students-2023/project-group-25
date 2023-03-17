@@ -1,7 +1,9 @@
 package orderStateHandler
 
 import (
+	"fmt"
 	"project/Network/Utilities/peers"
+	PP "project/Network/printing"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
 	"time"
@@ -32,11 +34,13 @@ func OrderStateHandler(localIP string,
 	for {
 		select {
 		case peerList = <-peerUpdateCh:
-			MergeNewNodeOrders(peerList, localNodeOrderStates)
+			fmt.Printf("PeerList Update!\n")
+			MergeNewNodeOrders(peerList, localNodeOrderStates, localIP)
 			reqStateMatrixTimer.Reset(1)
 			hallOrderArrayTimer.Reset(1)
 
 		case allNOSfromP2P := <-allNOSfromNTWCh:
+			fmt.Printf("NOS Update!\n")
 			senderIP := allNOSfromP2P.SenderIP
 			senderNOS := dt.NOSSliceToMap(allNOSfromP2P.AllNOS)
 			localNodeOrderStates[senderIP] = senderNOS[senderIP]
@@ -80,6 +84,7 @@ func OrderStateHandler(localIP string,
 					}
 				}
 			}
+			fmt.Println(PP.RSM_toString(senderNOS))
 		case BtnPress := <-hallBtnPressCh:
 			localStateArray := localNodeOrderStates[localIP]
 			if localStateArray[BtnPress.Floor][BtnPress.Button] == STATE_NONE {
@@ -160,34 +165,11 @@ func ConfirmedOrdersToHallOrder(allNOSMap map[string][dt.N_FLOORS][2]dt.OrderSta
 	return Local_HallOrderArray
 }
 
-// only if we are the node that is reconnecting
-func ReconnectNodeOrders(peerList peers.PeerUpdate, localData map[string][dt.N_FLOORS][2]dt.OrderState, localIP string) {
-
-	newNode := peerList.New
-
-	if newNode == localIP {
-		localStateArray := localData[localIP]
-		for floor := range localData[localIP] {
-			for btn_UpDown, localNode_state := range localData[localIP][floor] {
-				switch localNode_state {
-				case "none":
-				case "new":
-				case "confirmed":
-					localStateArray[floor][btn_UpDown] = "new"
-					localData[localIP] = localStateArray
-				}
-			}
-		}
-	}
-}
-
 // if a new elevator enters our network
-func MergeNewNodeOrders(peerList peers.PeerUpdate, localData map[string][dt.N_FLOORS][2]dt.OrderState) {
-	for ip := range localData {
-		for _, ipLost := range peerList.Lost {
-			if ip == ipLost {
-				delete(localData, ipLost)
-			}
+func MergeNewNodeOrders(peerList peers.PeerUpdate, localData map[string][dt.N_FLOORS][2]dt.OrderState, localIP string) {
+	for IP := range localData {
+		if !contains(peerList.Peers, IP) && IP != localIP {
+			delete(localData, IP)
 		}
 	}
 	// Iterate through the list of node IDs
@@ -209,4 +191,13 @@ func MergeNewNodeOrders(peerList peers.PeerUpdate, localData map[string][dt.N_FL
 			}
 		}
 	}
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

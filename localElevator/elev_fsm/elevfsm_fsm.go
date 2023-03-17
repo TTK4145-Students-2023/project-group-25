@@ -99,6 +99,7 @@ func FSM(
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		e.Dirn = elevio.MD_Stop
 		e.Behaviour = EB_IDLE
+		elevDataTimer.Reset(1)
 	}
 
 	e.CabRequests = <-cabRequestsToElevCh
