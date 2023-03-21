@@ -26,6 +26,9 @@ import (
 // 	MS_Slave  dt.MasterSlaveRole = "slave"
 // )
 
+
+
+
 // Variable declerations
 
 // Channels
@@ -66,13 +69,14 @@ func main() {
 	elevio.Init("localhost:15657", dt.N_FLOORS)
 	elevio.ResetLights()
 
-	// Main program
+	//elvio
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollButtons(btnEvent)
 	go elevio.PollObstructionSwitch(drv_obstr)
 
 	go btnassign.ButtonHandler(btnEvent, hallEvent, cabEvent)
 
+	// Peerlist handler
 	go peers.PeerListHandler(localIP,
 		peerUpdate_MS,
 		peerUpdate_DataDistributor,
@@ -89,7 +93,7 @@ func main() {
 		ReqStateMatrix_toP2P,
 		allElevData_fromP2P,
 		ReqStateMatrix_fromP2P)
-
+	// order assigner
 	go oassign.OrderAssigner(localIP,
 		masterSlaveRoleChan,
 		ordersFromDistributor,
@@ -97,6 +101,7 @@ func main() {
 		ordersToSlaves,
 		ordersLocal)
 
+	// DistributingSystem
 	go elevDataDistributor.DataDistributor(localIP,
 		allElevData_fromP2P,
 		elev_data,
@@ -112,8 +117,9 @@ func main() {
 		ReqStateMatrix_toP2P,
 		peerUpdate_OrderHandler)
 
-	time.Sleep(time.Millisecond * 40) // why this?
+	time.Sleep(time.Millisecond * 40)
 
+	// FSM
 	go elevfsm.FSM(ordersLocal,
 		cabEvent,
 		drv_floors,
@@ -121,7 +127,6 @@ func main() {
 		elev_data,
 		handler_hallOrdersExecuted)
 
-	// Should make another solution to keep the program running
 	for {
 		event := <-btnEvent
 		if event.Button == elevio.BT_Cab {
