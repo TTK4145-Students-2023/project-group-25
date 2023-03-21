@@ -2,17 +2,17 @@ package elevDataDistributor
 
 import (
 	"fmt"
+	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
+	"reflect"
 	"time"
 )
 
 // Statemachine for Distributor
 func DataDistributor(localIP string,
-	nodesInfoFromNTWCh <-chan dt.AllNodeInfoWithSenderIP,
 	localElevDataCh <-chan dt.ElevData,
 	HallOrderArrayCh <-chan [dt.N_FLOORS][2]bool,
-	nodeInfoToNTWCh chan<- []dt.NodeInfo,
 	costFuncInputCh chan<- dt.CostFuncInputSlice,
 	peerUpdateCh <-chan peers.PeerUpdate,
 	cabRequestsToElevCh chan<- [dt.N_FLOORS]bool,
@@ -21,10 +21,17 @@ func DataDistributor(localIP string,
 	costFuncInputSlice := dt.CostFuncInputSlice{}
 	peerList := peers.PeerUpdate{}
 
+	var (
+		transmittNodesInfo = make(chan dt.AllNodeInfoWithSenderIP)
+		receiveNodesInfo   = make(chan dt.AllNodeInfoWithSenderIP)
+	)
+	go bcast.Receiver(15667, receiveNodesInfo)
+	go bcast.Transmitter(15667, transmittNodesInfo)
+
 	worldViewTimer := time.NewTimer(1)
 	worldViewTimer.Stop()
-	allElevDataTimer := time.NewTimer(1)
-	allElevDataTimer.Stop()
+	broadCastTimer := time.NewTimer(1)
+	broadCastTimer.Stop()
 
 	initTimer := time.NewTimer(1 * time.Second)
 
@@ -32,13 +39,12 @@ func DataDistributor(localIP string,
 	initCabCalls := [dt.N_FLOORS]bool{}
 	for initTimeOut := false; !initTimeOut; {
 		select {
-		case NTWData := <-nodesInfoFromNTWCh:
+		case NTWData := <-receiveNodesInfo:
 			fmt.Printf("NodesInfoFromNTW:\n %+v\n\n", NTWData)
 			senderIP := NTWData.SenderIP
 			senderNodesInfo := dt.NodeInfoSliceToMap(NTWData.AllNodeInfo)
 
 			localNodesInfo[senderIP] = senderNodesInfo[senderIP]
-			allElevDataTimer.Reset(1)
 
 			if _, valInMap := senderNodesInfo[localIP]; valInMap {
 				for floor, order := range senderNodesInfo[localIP].CabRequests {
@@ -58,18 +64,21 @@ func DataDistributor(localIP string,
 	fmt.Println("enter normal DD")
 	for {
 		select {
+
 		case peerList = <-peerUpdateCh:
-		case NTWData := <-nodesInfoFromNTWCh:
-
-			senderIP := NTWData.SenderIP
-			senderNodesInfo := dt.NodeInfoSliceToMap(NTWData.AllNodeInfo)
-
-			localNodesInfo[senderIP] = senderNodesInfo[senderIP]
-			allElevDataTimer.Reset(1)
+		case newNodesInfo := <-receiveNodesInfo:
+			senderData := dt.NodeInfoSliceToMap(newNodesInfo.AllNodeInfo)
+			senderIP := newNodesInfo.SenderIP
+			//fmt.Printf("nodesInfo fro NTW: %+v\n", senderData)
+			if localIP != senderIP && !reflect.DeepEqual(senderData[senderIP], localNodesInfo[senderIP]) {
+				localNodesInfo[senderIP] = senderData[senderIP]
+			}
 
 		case elevData := <-localElevDataCh:
+			if _, valInMap := localNodesInfo[localIP]; !valInMap {
+				broadCastTimer.Reset(1)
+			}
 			localNodesInfo[localIP] = elevData
-			allElevDataTimer.Reset(1)
 
 		case orders := <-HallOrderArrayCh:
 			if localElevData, valInMap := localNodesInfo[localIP]; valInMap {
@@ -85,8 +94,11 @@ func DataDistributor(localIP string,
 					States:       dt.NodeInfoMapToSlice(aliveNodesInfo),
 				}
 				worldViewTimer.Reset(1)
-				allElevDataTimer.Reset(1)
 			}
+		case <-broadCastTimer.C:
+			//fmt.Printf("nodesInfo to NTW: %+v\n", dt.AllNodeInfoWithSenderIP{SenderIP: localIP, AllNodeInfo: dt.NodeInfoMapToSlice(localNodesInfo)})
+			transmittNodesInfo <- dt.AllNodeInfoWithSenderIP{SenderIP: localIP, AllNodeInfo: dt.NodeInfoMapToSlice(localNodesInfo)}
+			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 
 		case <-worldViewTimer.C:
 			select {
@@ -95,14 +107,7 @@ func DataDistributor(localIP string,
 			default:
 				worldViewTimer.Reset(1)
 			}
-		case <-allElevDataTimer.C:
-			select {
-			case nodeInfoToNTWCh <- dt.NodeInfoMapToSlice(localNodesInfo):
-			default:
-				allElevDataTimer.Reset(1)
-			}
 		}
-
 	}
 }
 

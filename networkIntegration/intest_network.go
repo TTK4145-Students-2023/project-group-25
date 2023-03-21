@@ -1,7 +1,6 @@
 package intestNTW
 
 import (
-	P2P "project/Network/P2Pntw"
 	"project/Network/Utilities/localip"
 	"project/Network/Utilities/peers"
 	masterSlaveNTW "project/Network/masterSlaveNTW"
@@ -39,8 +38,6 @@ var (
 	hallOrderArrayCh = make(chan [dt.N_FLOORS][2]bool)
 
 	// Data distributor channels
-	nodesInfoFromNTWCh  = make(chan dt.AllNodeInfoWithSenderIP)
-	nodeInfoToNTWCh     = make(chan []dt.NodeInfo)
 	cabRequestsToElevCh = make(chan [dt.N_FLOORS]bool)
 )
 
@@ -73,9 +70,7 @@ func RunNetworkWithAllTest() {
 		ordersFromMasterCh,
 		masterSlaveRoleCh,
 	)
-	go P2P.P2Pntw(localIP,
-		nodeInfoToNTWCh,
-		nodesInfoFromNTWCh)
+
 	// order assigner
 	go oassign.OrderAssigner(localIP,
 		masterSlaveRoleCh,
@@ -86,10 +81,8 @@ func RunNetworkWithAllTest() {
 
 	// DistributingSystem
 	go elevDataDistributor.DataDistributor(localIP,
-		nodesInfoFromNTWCh,
 		localElevDataCh,
 		hallOrderArrayCh,
-		nodeInfoToNTWCh,
 		costFuncInputCh,
 		peerUpdate_DataDistributorCh,
 		cabRequestsToElevCh)
