@@ -21,23 +21,20 @@ func WatchDog(
 	elevState := dt.ElevDataJSON{}
 	for {
 		select {
-		case elevState = <-elevData:
+		case <-elevData:
 			watchDogTimer.Reset(watchDogTime * time.Second)
 			switch watchDogRole {
 			case "ALIVE":
 			case "DEAD":
-				peerTxEnable <- true
+				peerTxEnable <- true // Connect to network
 				watchDogRole = "ALIVE"
 			}
 		case <-watchDogTimer.C:
 			switch elevState.Behavior {
 			case "idle":
 				watchDogTimer.Reset(watchDogTime * time.Second)
-			case "moving":
-				peerTxEnable <- false // Disconnect form network (peerTxEnable chan)
-				watchDogRole = "DEAD"
-			case "doorOpen":
-				peerTxEnable <- false // Disconnect form network (peerTxEnable chan)
+			case "moving", "doorOpen":
+				peerTxEnable <- false // Disconnect from network
 				watchDogRole = "DEAD"
 			}
 		}
