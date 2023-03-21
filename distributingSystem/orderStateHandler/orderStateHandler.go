@@ -25,8 +25,6 @@ func OrderStateHandler(localIP string,
 	localNodeOrderStates := map[string][dt.N_FLOORS][2]dt.OrderState{}
 	peerList := peers.PeerUpdate{}
 
-	reqStateMatrixTimer := time.NewTimer(1)
-	reqStateMatrixTimer.Stop()
 	hallOrderArrayTimer := time.NewTimer(1)
 	hallOrderArrayTimer.Stop()
 	broadCastTimer := time.NewTimer(1)
@@ -147,7 +145,6 @@ func OrderStateHandler(localIP string,
 					localStateArray := localNodeOrderStates[localIP]
 					localStateArray[floor][btn_UpDown] = STATE_CONFIRMED
 					localNodeOrderStates[localIP] = localStateArray
-					reqStateMatrixTimer.Reset(1)
 					hallOrderArrayTimer.Reset(1)
 					elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true) //turn on light?
 				}
