@@ -15,116 +15,81 @@ import (
 	"time"
 )
 
-// Constant declerations (should we have a "constant" package where we defines all constants?)
-// const (
-// 	N_FLOORS  = 4
-// 	N_BUTTONS = 3
-// )
-// const (
-// 	MS_Master dt.MasterSlaveRole = "master"
-// 	MS_Slave  dt.MasterSlaveRole = "slave"
-// )
-
-// Channels
 var (
-	masterSlaveRoleChan = make(chan dt.MasterSlaveRole)
+	masterSlaveRoleCh = make(chan dt.MasterSlaveRole)
 
-	ordersFromDistributor      = make(chan dt.CostFuncInput)
-	ordersFromMaster           = make(chan map[string][dt.N_FLOORS][2]bool)
-	ordersToSlaves             = make(chan map[string][dt.N_FLOORS][2]bool)
-	ordersLocal                = make(chan [dt.N_FLOORS][2]bool)
-	handler_hallOrdersExecuted = make(chan []elevio.ButtonEvent)
+	costFuncInputCh              = make(chan dt.CostFuncInputSlice) 
+	ordersFromMasterCh           = make(chan []dt.SlaveOrders)      
+	ordersToSlavesCh             = make(chan []dt.SlaveOrders)     
+	ordersElevCh                 = make(chan [dt.N_FLOORS][2]bool)
+	hallOrdersExecutedCh         = make(chan []elevio.ButtonEvent)
+	peerUpdate_MSCh              = make(chan peers.PeerUpdate)
+	peerUpdate_DataDistributorCh = make(chan peers.PeerUpdate)
+	peerUpdate_OrderHandlerCh    = make(chan peers.PeerUpdate)
 
-	peerUpdate_MS              = make(chan peers.PeerUpdate)
-	peerUpdate_DataDistributor = make(chan peers.PeerUpdate)
-	peerUpdate_OrderHandler    = make(chan peers.PeerUpdate)
+	btnPressCh     = make(chan elevio.ButtonEvent)
+	hallBtnPressCh = make(chan elevio.ButtonEvent)
+	cabBtnPressCh  = make(chan elevio.ButtonEvent)
 
-	btnEvent  = make(chan elevio.ButtonEvent)
-	hallEvent = make(chan elevio.ButtonEvent)
-	cabEvent  = make(chan elevio.ButtonEvent)
+	drv_floors      = make(chan int)
+	drv_obstr       = make(chan bool)
+	localElevDataCh = make(chan dt.ElevData)
 
-	drv_floors = make(chan int)
-	drv_obstr  = make(chan bool)
-	elev_data  = make(chan dt.ElevDataJSON)
+	hallOrderArrayCh = make(chan [dt.N_FLOORS][2]bool)
 
-	//orderStateHandler channels
-	ReqStateMatrix_fromP2P = make(chan dt.RequestStateMatrix_with_ID)
-	HallOrderArray         = make(chan [dt.N_FLOORS][2]bool)
-	ReqStateMatrix_toP2P   = make(chan dt.RequestStateMatrix)
-
-	// Data distributor channels
-	allElevData_fromP2P = make(chan dt.AllElevDataJSON_withID)
-	allElevData_toP2P   = make(chan dt.AllElevDataJSON)
+	cabRequestsToElevCh = make(chan [dt.N_FLOORS]bool)
 )
 
 func main() {
-	// Initialization phase
 	localIP, _ := localip.LocalIP()
 	elevio.Init("localhost:15657", dt.N_FLOORS)
-	elevio.ResetLights()
+	elevio.ClearAllLights()
 
-	// Main program
 	go elevio.PollFloorSensor(drv_floors)
-	go elevio.PollButtons(btnEvent)
+	go elevio.PollButtons(btnPressCh)
 	go elevio.PollObstructionSwitch(drv_obstr)
 
-	go btnassign.ButtonHandler(btnEvent, hallEvent, cabEvent)
-
+	
 	go peers.PeerListHandler(localIP,
-		peerUpdate_MS,
-		peerUpdate_DataDistributor,
-		peerUpdate_OrderHandler)
-
+		peerUpdate_MSCh,
+		peerUpdate_DataDistributorCh,
+		peerUpdate_OrderHandlerCh)
+		
 	go masterSlaveNTW.MasterSlaveNTW(localIP,
-		peerUpdate_MS,
-		ordersToSlaves,
-		ordersFromMaster,
-		masterSlaveRoleChan,
-	)
-	go P2P.P2Pntw(localIP,
-		allElevData_toP2P,
-		ReqStateMatrix_toP2P,
-		allElevData_fromP2P,
-		ReqStateMatrix_fromP2P)
+		peerUpdate_MSCh,
+		ordersToSlavesCh,
+		ordersFromMasterCh,
+		masterSlaveRoleCh)
 
 	go oassign.OrderAssigner(localIP,
-		masterSlaveRoleChan,
-		ordersFromDistributor,
-		ordersFromMaster,
-		ordersToSlaves,
-		ordersLocal)
-
+		masterSlaveRoleCh,
+		costFuncInputCh,
+		ordersFromMasterCh,
+		ordersToSlavesCh,
+		ordersElevCh)
+		
 	go elevDataDistributor.DataDistributor(localIP,
-		allElevData_fromP2P,
-		elev_data,
-		HallOrderArray,
-		allElevData_toP2P,
-		ordersFromDistributor,
-		peerUpdate_DataDistributor)
+		localElevDataCh,
+		hallOrderArrayCh,
+		costFuncInputCh,
+		peerUpdate_DataDistributorCh,
+		cabRequestsToElevCh)
+	
 	go orderStateHandler.OrderStateHandler(localIP,
-		ReqStateMatrix_fromP2P,
-		hallEvent,
-		handler_hallOrdersExecuted,
-		HallOrderArray,
-		ReqStateMatrix_toP2P,
-		peerUpdate_OrderHandler)
+		hallBtnPressCh,
+		hallOrdersExecutedCh,
+		hallOrderArrayCh,
+		peerUpdate_OrderHandlerCh)
+	
+	time.Sleep(time.Millisecond * 40)
 
-	time.Sleep(time.Millisecond * 40) // why this?
-
-	go elevfsm.FSM(ordersLocal,
-		cabEvent,
+	go elevfsm.FSM(ordersElevCh,
+		cabBtnPressCh,
 		drv_floors,
 		drv_obstr,
-		elev_data,
-		handler_hallOrdersExecuted)
-
-	// Should make another solution to keep the program running
-	for {
-		event := <-btnEvent
-		if event.Button == elevio.BT_Cab {
-			cabEvent <- event
-		} else {
-			hallEvent <- event
-		}
-	}
+		localElevDataCh,
+		hallOrdersExecutedCh,
+		cabRequestsToElevCh)
+		
+	btnassign.ButtonHandler(btnPressCh, hallBtnPressCh, cabBtnPressCh)
 }
