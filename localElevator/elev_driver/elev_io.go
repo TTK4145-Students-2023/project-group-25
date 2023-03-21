@@ -3,6 +3,7 @@ package elevio
 import (
 	"fmt"
 	"net"
+	dt "project/commonDataTypes"
 	"sync"
 	"time"
 )
@@ -48,6 +49,14 @@ func Init(addr string, numFloors int) {
 		panic(err.Error())
 	}
 	_initialized = true
+}
+
+func ResetLights() {
+	for floor := 0; floor < dt.N_FLOORS; floor++ {
+		for button := 0; button < dt.N_BUTTONS; button++ {
+			SetButtonLamp(ButtonType(button), floor, false)
+		}
+	}
 }
 
 func SetMotorDirection(dir MotorDirection) {
