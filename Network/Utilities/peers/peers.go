@@ -22,45 +22,46 @@ func PeerListHandler(localIP string,
 	peerUpdate_DataDistributor chan<- PeerUpdate,
 	peerUpdate_OrderHandler chan<- PeerUpdate,
 ) {
-	peerUpdateCh := make(chan PeerUpdate) // channel for receiving updates on the id of the peers that are alive on the network
-	peerTxEnable := make(chan bool)       // disable/enable the transmitter after started
+	var (
+		peerUpdateCh = make(chan PeerUpdate) // channel for receiving updates on the id of the peers that are alive on the network
+		peerTxEnable = make(chan bool)       // disable/enable the transmitter after started
+
+		timerDataDistributor = time.NewTimer(time.Hour)
+		timerOrderHandler    = time.NewTimer(time.Hour)
+		timerMS              = time.NewTimer(time.Hour)
+
+		peerList = PeerUpdate{}
+	)
+	timerDataDistributor.Stop()
+	timerOrderHandler.Stop()
+	timerMS.Stop()
 
 	go Transmitter(15669, localIP, peerTxEnable)
 	go Receiver(15669, peerUpdateCh)
 
 	for {
-		peerList := <-peerUpdateCh
-		fmt.Printf("Do we not get peerUpdate on channel?\n\n")
-		peerListSendt := [3]bool{false, false, false}
-		for peerListSendt != [3]bool{true, true, true} {
-			if !peerListSendt[0] {
-				select {
-				case peerUpdate_MS <- peerList:
-					peerListSendt[0] = true
-				case peerList = <-peerUpdateCh:
-					peerListSendt = [3]bool{false, false, false}
-				default:
-				}
+		select {
+		case peerList = <-peerUpdateCh:
+			timerDataDistributor.Reset(1)
+			timerOrderHandler.Reset(1)
+			timerMS.Reset(1)
+		case <-timerDataDistributor.C:
+			select {
+			case peerUpdate_DataDistributor <- peerList:
+			default:
+				timerDataDistributor.Reset(1)
 			}
-			if !peerListSendt[1] {
-				select {
-				case peerUpdate_DataDistributor <- peerList:
-					peerListSendt[1] = true
-				case peerList = <-peerUpdateCh:
-					peerListSendt = [3]bool{false, false, false}
-				default:
-				}
+		case <-timerOrderHandler.C:
+			select {
+			case peerUpdate_OrderHandler <- peerList:
+			default:
+				timerOrderHandler.Reset(1)
 			}
-			if !peerListSendt[2] {
-				fmt.Printf("in here\n\n")
-				select {
-				case peerUpdate_OrderHandler <- peerList:
-					peerListSendt[2] = true
-					fmt.Printf("not in here\n\n")
-				case peerList = <-peerUpdateCh:
-					peerListSendt = [3]bool{false, false, false}
-				default:
-				}
+		case <-timerMS.C:
+			select {
+			case peerUpdate_MS <- peerList:
+			default:
+				timerMS.Reset(1)
 			}
 		}
 	}
