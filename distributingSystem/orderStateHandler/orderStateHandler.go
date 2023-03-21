@@ -1,11 +1,11 @@
 package orderStateHandler
 
 import (
-	"fmt"
+	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
-	PP "project/Network/printing"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
+	"reflect"
 	"time"
 )
 
@@ -17,11 +17,9 @@ const (
 )
 
 func OrderStateHandler(localIP string,
-	allNOSfromNTWCh <-chan dt.AllNOS_WithSenderIP,
 	hallBtnPressCh <-chan elevio.ButtonEvent,
 	hallOrdersExecutedCh <-chan []elevio.ButtonEvent,
 	hallOrderArrayCh chan<- [dt.N_FLOORS][2]bool,
-	NOStoNTWCh chan<- []dt.NodeOrderStates,
 	peerUpdateCh <-chan peers.PeerUpdate,
 ) {
 	localNodeOrderStates := map[string][dt.N_FLOORS][2]dt.OrderState{}
@@ -31,19 +29,33 @@ func OrderStateHandler(localIP string,
 	reqStateMatrixTimer.Stop()
 	hallOrderArrayTimer := time.NewTimer(1)
 	hallOrderArrayTimer.Stop()
+	broadCastTimer := time.NewTimer(1)
+	broadCastTimer.Stop()
+
+	var (
+		receiveNodeOrderStates   = make(chan dt.NodeOrderStates)
+		transmittNodeOrderStates = make(chan dt.NodeOrderStates)
+	)
+
+	go bcast.Receiver(15668, receiveNodeOrderStates)
+	go bcast.Transmitter(15668, transmittNodeOrderStates)
+
 	for {
 		select {
 		case peerList = <-peerUpdateCh:
-			fmt.Printf("PeerList Update!\n")
 			MergeNewNodeOrders(peerList, localNodeOrderStates, localIP)
-			reqStateMatrixTimer.Reset(1)
+			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 			hallOrderArrayTimer.Reset(1)
 
-		case allNOSfromP2P := <-allNOSfromNTWCh:
-			fmt.Printf("NOS Update!\n")
-			senderIP := allNOSfromP2P.SenderIP
-			senderNOS := dt.NOSSliceToMap(allNOSfromP2P.AllNOS)
-			localNodeOrderStates[senderIP] = senderNOS[senderIP]
+		case newNodeOrderStates := <-receiveNodeOrderStates:
+			senderData := newNodeOrderStates.OrderStates
+			senderIP := newNodeOrderStates.IP
+
+			if localIP == senderIP || reflect.DeepEqual(senderData, localNodeOrderStates[senderIP]) {
+				break
+			}
+
+			localNodeOrderStates[senderIP] = senderData
 			// Iterate through the list of node IDs
 			for _, nodeIP := range peerList.Peers {
 				// Skip the local node
@@ -51,8 +63,8 @@ func OrderStateHandler(localIP string,
 					continue
 				}
 				// Compare the requestStates from the other nodes with the Local requestStates
-				for floor := range senderNOS[nodeIP] {
-					for btn_UpDown, other_state := range senderNOS[nodeIP][floor] {
+				for floor := range senderData {
+					for btn_UpDown, other_state := range senderData[floor] {
 
 						localOrderStates := localNodeOrderStates[localIP]
 						//cyclic change of states
@@ -62,14 +74,12 @@ func OrderStateHandler(localIP string,
 								localOrderStates[floor][btn_UpDown] = STATE_NONE
 								localNodeOrderStates[localIP] = localOrderStates
 								elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, false)
-								reqStateMatrixTimer.Reset(1)
 								hallOrderArrayTimer.Reset(1)
 							}
 						case STATE_NEW:
 							if localOrderStates[floor][btn_UpDown] == STATE_NONE {
 								localOrderStates[floor][btn_UpDown] = STATE_NEW
 								localNodeOrderStates[localIP] = localOrderStates
-								reqStateMatrixTimer.Reset(1)
 								hallOrderArrayTimer.Reset(1)
 							}
 						case STATE_CONFIRMED:
@@ -77,20 +87,18 @@ func OrderStateHandler(localIP string,
 								localOrderStates[floor][btn_UpDown] = STATE_CONFIRMED
 								localNodeOrderStates[localIP] = localOrderStates
 								elevio.SetButtonLamp(elevio.ButtonType(btn_UpDown), floor, true)
-								reqStateMatrixTimer.Reset(1)
 								hallOrderArrayTimer.Reset(1)
 							}
 						}
 					}
 				}
 			}
-			fmt.Println(PP.RSM_toString(senderNOS))
+			//fmt.Println(PP.RSM_toString(senderNOS))
 		case BtnPress := <-hallBtnPressCh:
 			localStateArray := localNodeOrderStates[localIP]
 			if localStateArray[BtnPress.Floor][BtnPress.Button] == STATE_NONE {
 				localStateArray[BtnPress.Floor][BtnPress.Button] = STATE_NEW
 				localNodeOrderStates[localIP] = localStateArray
-				reqStateMatrixTimer.Reset(1)
 				hallOrderArrayTimer.Reset(1)
 			}
 		case executedArray := <-hallOrdersExecutedCh:
@@ -103,22 +111,19 @@ func OrderStateHandler(localIP string,
 				if localStateArray[btn.Floor][btn.Button] == STATE_CONFIRMED {
 					localStateArray[btn.Floor][btn.Button] = STATE_NONE
 					localNodeOrderStates[localIP] = localStateArray
-					reqStateMatrixTimer.Reset(1)
 					hallOrderArrayTimer.Reset(1)
 					elevio.SetButtonLamp(btn.Button, btn.Floor, false)
 				}
 			}
+		case <-broadCastTimer.C:
+			transmittNodeOrderStates <- dt.NodeOrderStates{IP: localIP, OrderStates: localNodeOrderStates[localIP]}
+			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
+
 		case <-hallOrderArrayTimer.C:
 			select {
 			case hallOrderArrayCh <- ConfirmedOrdersToHallOrder(localNodeOrderStates, localIP):
 			default:
 				hallOrderArrayTimer.Reset(1)
-			}
-		case <-reqStateMatrixTimer.C:
-			select {
-			case NOStoNTWCh <- dt.NOSMapToSlice(localNodeOrderStates):
-			default:
-				reqStateMatrixTimer.Reset(1)
 			}
 		}
 		//Check if Order can be confirmed

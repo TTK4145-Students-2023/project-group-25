@@ -36,8 +36,6 @@ var (
 	localElevDataCh = make(chan dt.ElevData)
 
 	//orderStateHandler channels
-	allNOSfromNTWCh  = make(chan dt.AllNOS_WithSenderIP)
-	NOStoNTWCh       = make(chan []dt.NodeOrderStates)
 	hallOrderArrayCh = make(chan [dt.N_FLOORS][2]bool)
 
 	// Data distributor channels
@@ -77,9 +75,7 @@ func RunNetworkWithAllTest() {
 	)
 	go P2P.P2Pntw(localIP,
 		nodeInfoToNTWCh,
-		NOStoNTWCh,
-		nodesInfoFromNTWCh,
-		allNOSfromNTWCh)
+		nodesInfoFromNTWCh)
 	// order assigner
 	go oassign.OrderAssigner(localIP,
 		masterSlaveRoleCh,
@@ -99,11 +95,9 @@ func RunNetworkWithAllTest() {
 		cabRequestsToElevCh)
 
 	go orderStateHandler.OrderStateHandler(localIP,
-		allNOSfromNTWCh,
 		hallBtnPressCh,
 		hallOrdersExecutedCh,
 		hallOrderArrayCh,
-		NOStoNTWCh,
 		peerUpdate_OrderHandlerCh)
 
 	time.Sleep(time.Millisecond * 40)
