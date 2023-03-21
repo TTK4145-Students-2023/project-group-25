@@ -1,6 +1,7 @@
 package orderStateHandler
 
 import (
+	"fmt"
 	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
@@ -55,7 +56,7 @@ func OrderStateHandler(localIP string,
 			}
 			AllNodeOrderStates[senderIP] = newData
 
-			for _, nodeIP := range peerList.Peers {
+			for nodeIP := range AllNodeOrderStates {
 				if nodeIP == localIP {
 					continue
 				}
@@ -98,6 +99,9 @@ func OrderStateHandler(localIP string,
 			hallOrderArrayTimer.Reset(1)
 		case <-broadCastTimer.C:
 			transmitCh <- dt.NodeOrderStates{IP: localIP, OrderStates: AllNodeOrderStates[localIP]}
+			fmt.Printf("NOS: %+v\n", AllNodeOrderStates)
+			fmt.Printf("peerlist: %+v\n", peerList)
+
 			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 
 		case <-hallOrderArrayTimer.C:

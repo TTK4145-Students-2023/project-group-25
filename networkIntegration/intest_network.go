@@ -25,6 +25,7 @@ var (
 	peerUpdate_MSCh              = make(chan peers.PeerUpdate)
 	peerUpdate_DataDistributorCh = make(chan peers.PeerUpdate)
 	peerUpdate_OrderHandlerCh    = make(chan peers.PeerUpdate)
+	peerTxEnableCh               = make(chan bool)
 
 	btnPressCh     = make(chan elevio.ButtonEvent)
 	hallBtnPressCh = make(chan elevio.ButtonEvent)
@@ -60,6 +61,7 @@ func RunNetworkWithAllTest() {
 
 	// Peerlist handler
 	go peers.PeerListHandler(localIP,
+		peerTxEnableCh,
 		peerUpdate_MSCh,
 		peerUpdate_DataDistributorCh,
 		peerUpdate_OrderHandlerCh)
@@ -102,7 +104,8 @@ func RunNetworkWithAllTest() {
 		drv_obstr,
 		localElevDataCh,
 		hallOrdersExecutedCh,
-		cabRequestsToElevCh)
+		cabRequestsToElevCh,
+		peerTxEnableCh)
 
 	for {
 		event := <-btnPressCh

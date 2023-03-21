@@ -18,13 +18,13 @@ const interval = 15 * time.Millisecond
 const timeout = 500 * time.Millisecond
 
 func PeerListHandler(localIP string,
+	peerTxEnableCh <-chan bool,
 	peerUpdate_MS chan<- PeerUpdate,
 	peerUpdate_DataDistributor chan<- PeerUpdate,
 	peerUpdate_OrderHandler chan<- PeerUpdate,
 ) {
 	var (
 		peerUpdateCh = make(chan PeerUpdate) // channel for receiving updates on the id of the peers that are alive on the network
-		peerTxEnable = make(chan bool)       // disable/enable the transmitter after started
 
 		timerDataDistributor = time.NewTimer(time.Hour)
 		timerOrderHandler    = time.NewTimer(time.Hour)
@@ -36,7 +36,7 @@ func PeerListHandler(localIP string,
 	timerOrderHandler.Stop()
 	timerMS.Stop()
 
-	go Transmitter(15669, localIP, peerTxEnable)
+	go Transmitter(15669, localIP, peerTxEnableCh)
 	go Receiver(15669, peerUpdateCh)
 
 	for {

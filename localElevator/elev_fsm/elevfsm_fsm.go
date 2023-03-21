@@ -44,6 +44,13 @@ type Elevator struct {
 	Behaviour    ElevatorBehaviour
 	Config       ElevatorConfig
 }
+type WD_Role string
+
+const (
+	WD_ALIVE     WD_Role = "alive"
+	WD_DEAD      WD_Role = "dead"
+	watchDogTime         = 5 * time.Second
+)
 
 func getElevatorData(e Elevator) dt.ElevData {
 	dirnToString := map[elevio.MotorDirection]string{
@@ -65,8 +72,10 @@ func FSM(
 	drv_obstr <-chan bool,
 	elev_data chan<- dt.ElevData,
 	handler_hallOrdersExecuted chan<- []elevio.ButtonEvent,
-	cabRequestsToElevCh <-chan [dt.N_FLOORS]bool) {
-
+	cabRequestsToElevCh <-chan [dt.N_FLOORS]bool,
+	peerTxEnableCh chan<- bool) {
+	watchDogTimer := time.NewTimer(watchDogTime)
+	watchDogStatus := WD_ALIVE
 	obstr := false
 	hallOrdersExecuted := []elevio.ButtonEvent{}
 	e := Elevator{
@@ -227,8 +236,22 @@ func FSM(
 		case <-elevDataTimer.C:
 			select {
 			case elev_data <- getElevatorData(e):
+				watchDogTimer.Reset(watchDogTime)
+				switch watchDogStatus {
+				case WD_ALIVE:
+				case WD_DEAD:
+					peerTxEnableCh <- true
+					watchDogStatus = WD_ALIVE
+				}
 			default:
 				elevDataTimer.Reset(1)
+			}
+		case <-watchDogTimer.C:
+			switch e.Behaviour {
+			case EB_IDLE:
+			case EB_MOVING, EB_DOOR_OPEN:
+				peerTxEnableCh <- false
+				watchDogStatus = WD_DEAD
 			}
 		case <-hallOrdersExecutedTimer.C:
 			executedOrdersToAssigner := make([]elevio.ButtonEvent, len(hallOrdersExecuted))
