@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	dt "project/commonDataTypes"
 	"time"
 )
 
@@ -48,6 +49,14 @@ func Init(addr string, numFloors int) {
 		panic(err.Error())
 	}
 	_initialized = true
+}
+
+func ClearAllLights(){
+	for floor := 0; floor < dt.N_FLOORS; floor++ {
+		for button := 0; button < dt.N_BUTTONS; button++ {
+			SetButtonLamp(ButtonType(button), floor, false)
+		}
+	}
 }
 
 func SetMotorDirection(dir MotorDirection) {
