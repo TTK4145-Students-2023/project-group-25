@@ -37,7 +37,7 @@ func DataDistributor(localIP string,
 	go bcast.Receiver(dt.DATA_DISTRIBUTOR_PORT, receiveCh)
 	go bcast.Transmitter(dt.DATA_DISTRIBUTOR_PORT, transmittCh)
 
-	initTimer.Reset(time.Second * 2)
+	initTimer.Reset(time.Second * 3)
 initialization:
 	for cabRequests := [dt.N_FLOORS]bool{}; ; {
 		select {

@@ -102,6 +102,7 @@ initialization:
 			break initialization
 		default:
 			elevio.SetMotorDirection(elevio.MD_Down)
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
 
