@@ -14,19 +14,24 @@ import (
 
 func OrderAssigner(localIP string,
 	masterSlaveRoleCh <-chan dt.MasterSlaveRole,
-	costFuncInputCh <-chan dt.CostFuncInputSlice, // Input from order distributor
-	ordersFromMasterCh <-chan []dt.SlaveOrders, // Input read from Master-Slave network module
-	ordersToSlavesCh chan<- []dt.SlaveOrders, // Input written to Master-Slave network module
-	ordersElevCh chan<- [dt.N_FLOORS][2]bool) { // Input to local Elevator FSM
+	costFuncInputCh <-chan dt.CostFuncInputSlice,
+	ordersFromMasterCh <-chan []dt.SlaveOrders,
+	ordersToSlavesCh chan<- []dt.SlaveOrders,
+	ordersElevCh chan<- [dt.N_FLOORS][2]bool) {
 
-	elevHallOrders := [dt.N_FLOORS][2]bool{}
-	ordersToSlaves := map[string][dt.N_FLOORS][2]bool{}
-	localOrdersTimer := time.NewTimer(1)
+	var (
+		hraExecutable     = ""
+		assignerBehaviour = dt.MS_SLAVE
+
+		elevHallOrders = [dt.N_FLOORS][2]bool{}
+		ordersToSlaves = map[string][dt.N_FLOORS][2]bool{}
+
+		localOrdersTimer    = time.NewTimer(time.Hour)
+		ordersToSlavesTimer = time.NewTimer(time.Hour)
+	)
 	localOrdersTimer.Stop()
-	ordersToSlavesTimer := time.NewTimer(1)
 	ordersToSlavesTimer.Stop()
 
-	hraExecutable := ""
 	switch runtime.GOOS {
 	case "linux":
 		hraExecutable = "hall_request_assigner"
@@ -35,12 +40,9 @@ func OrderAssigner(localIP string,
 	default:
 		panic("OS not supported")
 	}
-
-	assignerBehaviour := dt.MS_SLAVE
 	for {
 		select {
 		case assignerBehaviour = <-masterSlaveRoleCh:
-			fmt.Printf("You are now %s! \n", string(assignerBehaviour))
 		case costFuncInput := <-costFuncInputCh:
 			input := dt.SliceToCostFuncInput(costFuncInput)
 			switch assignerBehaviour {

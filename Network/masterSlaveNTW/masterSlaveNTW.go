@@ -20,20 +20,20 @@ func MasterSlaveNTW(localIP string,
 	var (
 		receiveOrdersChan   = make(chan map[string][dt.N_FLOORS][2]bool)
 		transmittOrdersChan = make(chan map[string][dt.N_FLOORS][2]bool)
+
+		MS_role          = dt.MS_SLAVE
+		ordersToSlaves   = map[string][dt.N_FLOORS][2]bool{}
+		ordersFromMaster = map[string][dt.N_FLOORS][2]bool{}
+
+		broadCastTimer        = time.NewTimer(1)
+		masterSlaveRoleTimer  = time.NewTimer(time.Hour)
+		ordersFromMasterTimer = time.NewTimer(time.Hour)
 	)
-
-	go bcast.Receiver(15660, receiveOrdersChan)
-	go bcast.Transmitter(15660, transmittOrdersChan)
-
-	broadCastTimer := time.NewTimer(1)
-	masterSlaveRoleTimer := time.NewTimer(1)
 	masterSlaveRoleTimer.Stop()
-	ordersFromMasterTimer := time.NewTimer(1)
 	ordersFromMasterTimer.Stop()
 
-	MS_role := dt.MS_SLAVE
-	ordersToSlaves := map[string][dt.N_FLOORS][2]bool{}
-	ordersFromMaster := map[string][dt.N_FLOORS][2]bool{}
+	go bcast.Receiver(dt.MS_PORT, receiveOrdersChan)
+	go bcast.Transmitter(dt.MS_PORT, transmittOrdersChan)
 
 	for {
 		select {

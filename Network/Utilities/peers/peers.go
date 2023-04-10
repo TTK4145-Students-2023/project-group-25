@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"project/Network/Utilities/conn"
+	dt "project/commonDataTypes"
 	"sort"
 	"time"
 )
@@ -24,20 +25,19 @@ func PeerListHandler(localIP string,
 	peerUpdate_OrderHandler chan<- PeerUpdate,
 ) {
 	var (
-		peerUpdateCh = make(chan PeerUpdate) // channel for receiving updates on the id of the peers that are alive on the network
+		peerUpdateCh = make(chan PeerUpdate)
+		peerList     = PeerUpdate{}
 
 		timerDataDistributor = time.NewTimer(time.Hour)
 		timerOrderHandler    = time.NewTimer(time.Hour)
 		timerMS              = time.NewTimer(time.Hour)
-
-		peerList = PeerUpdate{}
 	)
 	timerDataDistributor.Stop()
 	timerOrderHandler.Stop()
 	timerMS.Stop()
 
-	go Transmitter(15669, localIP, peerTxEnableCh)
-	go Receiver(15669, peerUpdateCh)
+	go Transmitter(dt.PEER_LIST_PORT, localIP, peerTxEnableCh)
+	go Receiver(dt.PEER_LIST_PORT, peerUpdateCh)
 
 	for {
 		select {

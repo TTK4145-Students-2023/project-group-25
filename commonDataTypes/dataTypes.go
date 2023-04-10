@@ -5,17 +5,25 @@ import (
 )
 
 type MasterSlaveRole string
-type OrderState string
 
+// ****** ELEVATOR CONSTANTS ********
 const (
 	N_FLOORS  = 4
 	N_BUTTONS = 3
 )
 
+// ****** NETWORK CONSTANTS ********
 const (
-	MS_MASTER        MasterSlaveRole = "master"
-	MS_SLAVE         MasterSlaveRole = "slave"
-	BROADCAST_PERIOD time.Duration   = 300 * time.Millisecond
+	MS_PORT                             = 15660
+	PEER_LIST_PORT                      = 15669
+	ORDERSTATE_PORT                     = 15668
+	DATA_DISTRIBUTOR_PORT               = 15667
+	BROADCAST_PERIOD      time.Duration = 100 * time.Millisecond
+)
+
+const (
+	MS_MASTER MasterSlaveRole = "master"
+	MS_SLAVE  MasterSlaveRole = "slave"
 )
 
 type ElevData struct {
@@ -45,16 +53,6 @@ type CostFuncInputSlice struct {
 	States       []NodeInfo        `json:"states"`
 }
 
-type NodeOrderStates struct {
-	IP          string                  `json:"ip"`
-	OrderStates [N_FLOORS][2]OrderState `json:"orderStates"`
-}
-
-type AllNOS_WithSenderIP struct {
-	SenderIP string            `json:"ip"`
-	AllNOS   []NodeOrderStates `json:"allNOS"`
-}
-
 type SlaveOrders struct {
 	IP     string            `json:"slaveIp"`
 	Orders [N_FLOORS][2]bool `json:"slaveOrders"`
@@ -76,45 +74,12 @@ func SlaveOrdersMapToSlice(slaveOrdersMap map[string][N_FLOORS][2]bool) []SlaveO
 	return slaveOrdersSlice
 }
 
-func NOSSliceToMap(NOSSlice []NodeOrderStates) map[string][N_FLOORS][2]OrderState {
-	NOSMap := map[string][N_FLOORS][2]OrderState{}
-	for _, NodeOrderStates := range NOSSlice {
-		NOSMap[NodeOrderStates.IP] = NodeOrderStates.OrderStates
-	}
-	return NOSMap
-}
-
-func NOSMapToSlice(NOSMap map[string][N_FLOORS][2]OrderState) []NodeOrderStates {
-	NOSSlice := []NodeOrderStates{}
-	for ip, orderStates := range NOSMap {
-		NOSSlice = append(NOSSlice, NodeOrderStates{IP: ip, OrderStates: orderStates})
-	}
-	return NOSSlice
-}
-
-func NodeInfoSliceToMap(nodesInfoSlice []NodeInfo) map[string]ElevData {
-	nodesInfoMap := map[string]ElevData{}
-	for _, nodeInfo := range nodesInfoSlice {
-		nodesInfoMap[nodeInfo.IP] = nodeInfo.Data
-	}
-	return nodesInfoMap
-}
-
 func NodeInfoMapToSlice(nodesInfoMap map[string]ElevData) []NodeInfo {
 	nodesInfoSlice := []NodeInfo{}
 	for ip, elevData := range nodesInfoMap {
 		nodesInfoSlice = append(nodesInfoSlice, NodeInfo{IP: ip, Data: elevData})
 	}
 	return nodesInfoSlice
-}
-
-func CostFuncInputToSlice(costFuncInput CostFuncInput) CostFuncInputSlice {
-	allNodeInfo := []NodeInfo{}
-	costFuncInputSlice := CostFuncInputSlice{HallRequests: costFuncInput.HallRequests, States: allNodeInfo}
-	for ip, elevData := range costFuncInput.States {
-		allNodeInfo = append(allNodeInfo, NodeInfo{IP: ip, Data: elevData})
-	}
-	return costFuncInputSlice
 }
 
 func SliceToCostFuncInput(costFuncInputSlice CostFuncInputSlice) CostFuncInput {

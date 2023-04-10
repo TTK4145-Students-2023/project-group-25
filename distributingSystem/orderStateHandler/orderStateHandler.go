@@ -1,7 +1,6 @@
 package orderStateHandler
 
 import (
-	"fmt"
 	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
@@ -10,33 +9,44 @@ import (
 	"time"
 )
 
+type NodeOrderStates struct {
+	IP          string                     `json:"ip"`
+	OrderStates [dt.N_FLOORS][2]OrderState `json:"orderStates"`
+}
+
+type AllNOS_WithSenderIP struct {
+	SenderIP string            `json:"ip"`
+	AllNOS   []NodeOrderStates `json:"allNOS"`
+}
+type OrderState string
+
 const (
-	STATE_NONE      dt.OrderState = "none"
-	STATE_NEW       dt.OrderState = "new"
-	STATE_CONFIRMED dt.OrderState = "confirmed"
+	STATE_NONE      OrderState = "none"
+	STATE_NEW       OrderState = "new"
+	STATE_CONFIRMED OrderState = "confirmed"
 )
 
 func OrderStateHandler(localIP string,
 	hallBtnPressCh <-chan elevio.ButtonEvent,
-	hallOrdersExecutedCh <-chan []elevio.ButtonEvent,
+	executedHallOrdersCh <-chan []elevio.ButtonEvent,
 	hallOrderArrayCh chan<- [dt.N_FLOORS][2]bool, //confHallOrders?
 	peerUpdateCh <-chan peers.PeerUpdate,
 ) {
 	var (
-		AllNodeOrderStates = map[string][dt.N_FLOORS][2]dt.OrderState{}
 		peerList           = peers.PeerUpdate{}
+		AllNodeOrderStates = map[string][dt.N_FLOORS][2]OrderState{}
 
-		hallOrderArrayTimer = time.NewTimer(1)
-		broadCastTimer      = time.NewTimer(1)
+		broadCastTimer      = time.NewTimer(time.Hour)
+		hallOrderArrayTimer = time.NewTimer(time.Hour)
 
-		receiveCh  = make(chan dt.NodeOrderStates)
-		transmitCh = make(chan dt.NodeOrderStates)
+		receiveCh  = make(chan NodeOrderStates)
+		transmitCh = make(chan NodeOrderStates)
 	)
 	broadCastTimer.Stop()
 	hallOrderArrayTimer.Stop()
 
-	go bcast.Receiver(15668, receiveCh)
-	go bcast.Transmitter(15668, transmitCh)
+	go bcast.Receiver(dt.ORDERSTATE_PORT, receiveCh)
+	go bcast.Transmitter(dt.ORDERSTATE_PORT, transmitCh)
 
 	for {
 		select {
@@ -87,7 +97,7 @@ func OrderStateHandler(localIP string,
 				AllNodeOrderStates[localIP] = newOrderStates
 				hallOrderArrayTimer.Reset(1)
 			}
-		case executedOrders := <-hallOrdersExecutedCh:
+		case executedOrders := <-executedHallOrdersCh:
 			newOrderStates := AllNodeOrderStates[localIP]
 			for _, order := range executedOrders {
 				if newOrderStates[order.Floor][order.Button] == STATE_CONFIRMED {
@@ -98,10 +108,7 @@ func OrderStateHandler(localIP string,
 			AllNodeOrderStates[localIP] = newOrderStates
 			hallOrderArrayTimer.Reset(1)
 		case <-broadCastTimer.C:
-			transmitCh <- dt.NodeOrderStates{IP: localIP, OrderStates: AllNodeOrderStates[localIP]}
-			fmt.Printf("NOS: %+v\n", AllNodeOrderStates)
-			fmt.Printf("peerlist: %+v\n", peerList)
-
+			transmitCh <- NodeOrderStates{IP: localIP, OrderStates: AllNodeOrderStates[localIP]}
 			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 
 		case <-hallOrderArrayTimer.C:
@@ -127,7 +134,8 @@ func OrderStateHandler(localIP string,
 	}
 }
 
-func orderCanBeConfirmed(floor, btn int, AllNodeOrderStates map[string][dt.N_FLOORS][2]dt.OrderState) bool {
+func orderCanBeConfirmed(floor, btn int,
+	AllNodeOrderStates map[string][dt.N_FLOORS][2]OrderState) bool {
 	for _, nodeOrderStates := range AllNodeOrderStates {
 		if nodeOrderStates[floor][btn] != STATE_NEW {
 			return false
@@ -136,7 +144,7 @@ func orderCanBeConfirmed(floor, btn int, AllNodeOrderStates map[string][dt.N_FLO
 	return true
 }
 
-func updateOrderState(inputState, currentState dt.OrderState) dt.OrderState {
+func updateOrderState(inputState, currentState OrderState) OrderState {
 	switch inputState {
 	case STATE_NONE:
 		if currentState == STATE_CONFIRMED {
@@ -155,7 +163,7 @@ func updateOrderState(inputState, currentState dt.OrderState) dt.OrderState {
 	return currentState
 }
 
-func orderStatesToBool(orderStates [dt.N_FLOORS][2]dt.OrderState) [dt.N_FLOORS][2]bool {
+func orderStatesToBool(orderStates [dt.N_FLOORS][2]OrderState) [dt.N_FLOORS][2]bool {
 	hallOrders := [dt.N_FLOORS][2]bool{}
 	for floor := range orderStates {
 		for btn, state := range orderStates[floor] {
@@ -167,21 +175,30 @@ func orderStatesToBool(orderStates [dt.N_FLOORS][2]dt.OrderState) [dt.N_FLOORS][
 	return hallOrders
 }
 
-func addNewEmptyNodes(peerList peers.PeerUpdate, AllNodeOrderStates map[string][dt.N_FLOORS][2]dt.OrderState) map[string][dt.N_FLOORS][2]dt.OrderState {
-	outputMap := make(map[string][dt.N_FLOORS][2]dt.OrderState)
+func addNewEmptyNodes(peerList peers.PeerUpdate,
+	AllNodeOrderStates map[string][dt.N_FLOORS][2]OrderState,
+) map[string][dt.N_FLOORS][2]OrderState {
+	outputMap := make(map[string][dt.N_FLOORS][2]OrderState)
 	for key, value := range AllNodeOrderStates {
 		outputMap[key] = value
 	}
 	for _, nodeIP := range peerList.Peers {
 		if _, nodeOrdersSaved := outputMap[nodeIP]; !nodeOrdersSaved {
-			outputMap[nodeIP] = [dt.N_FLOORS][2]dt.OrderState{{STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}, {STATE_NONE, STATE_NONE}}
+			outputMap[nodeIP] = [dt.N_FLOORS][2]OrderState{
+				{STATE_NONE, STATE_NONE},
+				{STATE_NONE, STATE_NONE},
+				{STATE_NONE, STATE_NONE},
+				{STATE_NONE, STATE_NONE}}
 		}
 	}
 	return outputMap
 }
 
-func removeDeadNodes(peerList peers.PeerUpdate, AllNodeOrderStates map[string][dt.N_FLOORS][2]dt.OrderState, localIP string) map[string][dt.N_FLOORS][2]dt.OrderState {
-	outputMap := make(map[string][dt.N_FLOORS][2]dt.OrderState)
+func removeDeadNodes(peerList peers.PeerUpdate,
+	AllNodeOrderStates map[string][dt.N_FLOORS][2]OrderState,
+	localIP string,
+) map[string][dt.N_FLOORS][2]OrderState {
+	outputMap := make(map[string][dt.N_FLOORS][2]OrderState)
 	for IP := range AllNodeOrderStates {
 		if contains(peerList.Peers, IP) || IP == localIP {
 			outputMap[IP] = AllNodeOrderStates[IP]
@@ -190,8 +207,10 @@ func removeDeadNodes(peerList peers.PeerUpdate, AllNodeOrderStates map[string][d
 	return outputMap
 }
 
-func withdrawOrderConfirmations(peerList peers.PeerUpdate, AllNodeOrderStates map[string][dt.N_FLOORS][2]dt.OrderState) map[string][dt.N_FLOORS][2]dt.OrderState {
-	outputMap := make(map[string][dt.N_FLOORS][2]dt.OrderState)
+func withdrawOrderConfirmations(peerList peers.PeerUpdate,
+	AllNodeOrderStates map[string][dt.N_FLOORS][2]OrderState,
+) map[string][dt.N_FLOORS][2]OrderState {
+	outputMap := make(map[string][dt.N_FLOORS][2]OrderState)
 	for key, value := range AllNodeOrderStates {
 		outputMap[key] = value
 	}

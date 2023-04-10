@@ -108,13 +108,7 @@ func requests_shouldStop(e Elevator) bool {
 	}
 }
 
-func requests_getHallOrdersExecuted(e Elevator) []elevio.ButtonEvent {
-	if e.Config.ClearRequestVariant == CV_ALL {
-		return []elevio.ButtonEvent{
-			{Floor: e.Floor, Button: elevio.BT_HallDown},
-			{Floor: e.Floor, Button: elevio.BT_HallUp}}
-	}
-
+func requests_getExecutedHallOrders(e Elevator) []elevio.ButtonEvent {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
 	orders := []elevio.ButtonEvent{}
 	switch e.Dirn {

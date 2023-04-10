@@ -16,26 +16,28 @@ func DataDistributor(localIP string,
 	peerUpdateCh <-chan peers.PeerUpdate,
 	cabRequestsToElevCh chan<- [dt.N_FLOORS]bool,
 ) {
-	const dataDistributorPort = 15667
+
 	var (
-		transmittCh = make(chan dt.AllNodeInfoWithSenderIP)
 		receiveCh   = make(chan dt.AllNodeInfoWithSenderIP)
+		transmittCh = make(chan dt.AllNodeInfoWithSenderIP)
 
-		broadCastTimer = time.NewTimer(time.Hour)
+		initTimer      = time.NewTimer(time.Hour)
 		costFuncTimer  = time.NewTimer(time.Hour)
-		initTimer      = time.NewTimer(2 * time.Second)
+		broadCastTimer = time.NewTimer(time.Hour)
 
-		costFuncInputSlice = dt.CostFuncInputSlice{}
-		allElevData        = map[string]dt.ElevData{}
 		peerList           = peers.PeerUpdate{}
+		allElevData        = map[string]dt.ElevData{}
+		costFuncInputSlice = dt.CostFuncInputSlice{}
 	)
 
-	broadCastTimer.Stop()
+	initTimer.Stop()
 	costFuncTimer.Stop()
+	broadCastTimer.Stop()
 
-	go bcast.Transmitter(dataDistributorPort, transmittCh)
-	go bcast.Receiver(dataDistributorPort, receiveCh)
+	go bcast.Receiver(dt.DATA_DISTRIBUTOR_PORT, receiveCh)
+	go bcast.Transmitter(dt.DATA_DISTRIBUTOR_PORT, transmittCh)
 
+	initTimer.Reset(time.Second * 2)
 initialization:
 	for cabRequests := [dt.N_FLOORS]bool{}; ; {
 		select {
