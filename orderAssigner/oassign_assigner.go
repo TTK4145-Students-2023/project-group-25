@@ -6,19 +6,32 @@ import (
 	"os/exec"
 	dt "project/commonDataTypes"
 	"runtime"
+	"time"
 )
 
 // Struct members must be public in order to be accessible by json.Marshal/.Unmarshal
 // This means they must start with a capital letter, so we need to use field renaming struct tags to make them camelCase
 
-func OrderAssigner(OrderAssignerBehaviourChan <-chan dt.OrderAssignerBehaviour,
-	localIpAdressChan <-chan string, // Chanel where local IP-adress is fetched
-	ordersFromDistributor <-chan dt.CostFuncInput, // Input from order distributor
-	ordersFromMaster <-chan []byte, // Input read from Master-Slave network module
-	ordersToSlaves chan<- []byte, // Input written to Master-Slave network module
-	localOrders chan<- [][2]bool) { // Input to local Elevator FSM
+func OrderAssigner(localIP string,
+	masterSlaveRoleCh <-chan dt.MasterSlaveRole,
+	costFuncInputCh <-chan dt.CostFuncInputSlice,
+	ordersFromMasterCh <-chan []dt.SlaveOrders,
+	ordersToSlavesCh chan<- []dt.SlaveOrders,
+	ordersElevCh chan<- [dt.N_FLOORS][2]bool) {
 
-	hraExecutable := ""
+	var (
+		hraExecutable     = ""
+		assignerBehaviour = dt.MS_SLAVE
+
+		elevHallOrders = [dt.N_FLOORS][2]bool{}
+		ordersToSlaves = map[string][dt.N_FLOORS][2]bool{}
+
+		localOrdersTimer    = time.NewTimer(time.Hour)
+		ordersToSlavesTimer = time.NewTimer(time.Hour)
+	)
+	localOrdersTimer.Stop()
+	ordersToSlavesTimer.Stop()
+
 	switch runtime.GOOS {
 	case "linux":
 		hraExecutable = "hall_request_assigner"
@@ -27,52 +40,62 @@ func OrderAssigner(OrderAssignerBehaviourChan <-chan dt.OrderAssignerBehaviour,
 	default:
 		panic("OS not supported")
 	}
-
-	localIpAdress := ""
-	assignerBehaviour := dt.OA_Slave
 	for {
 		select {
-		case localIpAdress = <-localIpAdressChan:
-		case assignerBehaviour = <-OrderAssignerBehaviourChan:
-		case input := <-ordersFromDistributor:
+		case assignerBehaviour = <-masterSlaveRoleCh:
+		case costFuncInput := <-costFuncInputCh:
+			input := dt.SliceToCostFuncInput(costFuncInput)
 			switch assignerBehaviour {
-			case dt.OA_Slave:
-			case dt.OA_Master:
+			case dt.MS_SLAVE:
+			case dt.MS_MASTER:
 				jsonBytes, err := json.Marshal(input)
 				if err != nil {
 					fmt.Println("json.Marshal error: ", err)
-					return
+					break
 				}
 				ret, err := exec.Command(hraExecutable, "-i", string(jsonBytes)).CombinedOutput()
 				if err != nil {
 					fmt.Println("exec.Command error: ", err)
 					fmt.Println(string(ret))
-					return
+					break
 				}
-				output := map[string][][2]bool{}
+				output := map[string][dt.N_FLOORS][2]bool{}
 				err = json.Unmarshal(ret, &output)
 				if err != nil {
 					fmt.Println("json.Unmarshal error: ", err)
-					return
+					break
 				}
-				if localHallOrders, ok := output[localIpAdress]; ok {
-					localOrders <- localHallOrders
+				if newElevHallOrders, ok := output[localIP]; ok {
+					elevHallOrders = newElevHallOrders
+					localOrdersTimer.Reset(1)
 				}
-				ordersToSlaves <- ret
+				ordersToSlaves = output
+				ordersToSlavesTimer.Reset(1)
 			}
-		case input := <-ordersFromMaster:
+		case ordersFromMaster := <-ordersFromMasterCh:
+
 			switch assignerBehaviour {
-			case dt.OA_Master:
-			case dt.OA_Slave:
-				output := map[string][][2]bool{}
-				err := json.Unmarshal(input, &output)
-				if err != nil {
-					fmt.Println("json.Unmarshal error: ", err)
-					return
+			case dt.MS_MASTER:
+			case dt.MS_SLAVE:
+
+				for _, newHallOrder := range ordersFromMaster {
+					if newHallOrder.IP == localIP {
+						elevHallOrders = newHallOrder.Orders
+						localOrdersTimer.Reset(1)
+					}
 				}
-				if localHallOrders, ok := output[localIpAdress]; ok {
-					localOrders <- localHallOrders
-				}
+			}
+		case <-ordersToSlavesTimer.C:
+			select {
+			case ordersToSlavesCh <- dt.SlaveOrdersMapToSlice(ordersToSlaves):
+			default:
+				ordersToSlavesTimer.Reset(1)
+			}
+		case <-localOrdersTimer.C:
+			select {
+			case ordersElevCh <- elevHallOrders:
+			default:
+				localOrdersTimer.Reset(1)
 			}
 		}
 	}
