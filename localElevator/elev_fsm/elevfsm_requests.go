@@ -1,21 +1,22 @@
 package elevfsm
 
 import (
+	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
 )
 
-func requests_mergeHallAndCab(hallRequests [][2]bool, cabRequests []bool) [N_FLOORS][N_BUTTONS]bool {
-	var requests [N_FLOORS][N_BUTTONS]bool
-	for i := 0; i < N_FLOORS; i++ {
-		requests[i] = [N_BUTTONS]bool{hallRequests[i][0], hallRequests[i][1], cabRequests[i]}
+func requests_mergeHallAndCab(hallRequests [dt.N_FLOORS][2]bool, cabRequests [dt.N_FLOORS]bool) [dt.N_FLOORS][dt.N_BUTTONS]bool {
+	var requests [dt.N_FLOORS][dt.N_BUTTONS]bool
+	for i := range requests {
+		requests[i] = [dt.N_BUTTONS]bool{hallRequests[i][0], hallRequests[i][1], cabRequests[i]}
 	}
 	return requests
 }
 
 func requests_above(e Elevator) bool {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
-	for f := e.Floor + 1; f < N_FLOORS; f++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
+	for f := e.Floor + 1; f < dt.N_FLOORS; f++ {
+		for btn := 0; btn < dt.N_BUTTONS; btn++ {
 			if requests[f][btn] {
 				return true
 			}
@@ -27,7 +28,7 @@ func requests_above(e Elevator) bool {
 func requests_below(e Elevator) bool {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
 	for f := 0; f < e.Floor; f++ {
-		for btn := 0; btn < N_BUTTONS; btn++ {
+		for btn := 0; btn < dt.N_BUTTONS; btn++ {
 			if requests[f][btn] {
 				return true
 			}
@@ -38,7 +39,7 @@ func requests_below(e Elevator) bool {
 
 func requests_here(e Elevator) bool {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
-	for btn := 0; btn < N_BUTTONS; btn++ {
+	for btn := 0; btn < dt.N_BUTTONS; btn++ {
 		if requests[e.Floor][btn] {
 			return true
 		}
@@ -50,42 +51,42 @@ func requests_chooseDirection(e Elevator) DirnBehaviourPair {
 	switch e.Dirn {
 	case elevio.MD_Up:
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
 		}
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_DOOR_OPEN}
 		}
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
 
 	case elevio.MD_Down:
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
 		}
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_DOOR_OPEN}
 		}
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
 
 	case elevio.MD_Stop: // there should only be one request in the Stop case. Checking up or down first is arbitrary.
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_DoorOpen}
+			return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_DOOR_OPEN}
 		}
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
 		}
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_Moving}
+			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
 
 	default:
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_Idle}
+		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
 	}
 }
 
@@ -107,13 +108,7 @@ func requests_shouldStop(e Elevator) bool {
 	}
 }
 
-func requests_getHallOrdersExecuted(e Elevator) []elevio.ButtonEvent {
-	if e.Config.ClearRequestVariant == CV_All {
-		return []elevio.ButtonEvent{
-			{Floor: e.Floor, Button: elevio.BT_HallDown},
-			{Floor: e.Floor, Button: elevio.BT_HallUp}}
-	}
-
+func requests_getExecutedHallOrders(e Elevator) []elevio.ButtonEvent {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
 	orders := []elevio.ButtonEvent{}
 	switch e.Dirn {
@@ -143,7 +138,7 @@ func requests_getHallOrdersExecuted(e Elevator) []elevio.ButtonEvent {
 }
 
 func requests_clearLocalHallRequest(e Elevator, clearEvent []elevio.ButtonEvent) Elevator {
-	for i := 0; i < len(clearEvent); i++ {
+	for i := range clearEvent {
 		e.HallRequests[clearEvent[i].Floor][clearEvent[i].Button] = false
 	}
 	return e
