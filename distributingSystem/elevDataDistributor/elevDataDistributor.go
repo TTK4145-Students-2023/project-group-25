@@ -1,67 +1,104 @@
 package elevDataDistributor
 
 import (
-	"fmt"
+	"project/Network/Utilities/bcast"
+	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
+	"reflect"
+	"time"
 )
 
-var localID string = "127.0.0.1"
-
 // Statemachine for Distributor
-func DataDistributor(
-	allElevData_fromP2P <-chan dt.AllElevDataJSON_withID,
-	localElevData <-chan dt.ElevDataJSON,
-	HallOrderArray <-chan [][2]bool,
-	allElevData_toP2P chan<- dt.AllElevDataJSON_withID,
-	WorldView_toAssigner chan<- dt.CostFuncInput,
+func DataDistributor(localIP string,
+	localElevDataCh <-chan dt.ElevData,
+	HallRequestsCh <-chan [dt.N_FLOORS][2]bool,
+	costFuncInputCh chan<- dt.CostFuncInputSlice,
+	peerUpdateCh <-chan peers.PeerUpdate,
+	cabRequestsToElevCh chan<- [dt.N_FLOORS]bool,
 ) {
-	//init local Data Matrix with local ID
-	Local_DataMatrix := make(dt.AllElevDataJSON)
-	Local_DataMatrix[localID] = dt.ElevDataJSON{}
-	//Local_DataMatrix["ID2"] = dt.ElevDataJSON{}
-	//Local_DataMatrix["ID3"] = dt.ElevDataJSON{}
 
-	Local_withID := dt.AllElevDataJSON_withID{
-		ID:      localID,
-		AllData: Local_DataMatrix,
+	var (
+		receiveCh   = make(chan dt.AllNodeInfoWithSenderIP)
+		transmittCh = make(chan dt.AllNodeInfoWithSenderIP)
+
+		initTimer      = time.NewTimer(time.Hour)
+		costFuncTimer  = time.NewTimer(time.Hour)
+		broadCastTimer = time.NewTimer(time.Hour)
+
+		peerList           = peers.PeerUpdate{}
+		allElevData        = map[string]dt.ElevData{}
+		costFuncInputSlice = dt.CostFuncInputSlice{}
+	)
+
+	initTimer.Stop()
+	costFuncTimer.Stop()
+	broadCastTimer.Stop()
+
+	go bcast.Receiver(dt.DATA_DISTRIBUTOR_PORT, receiveCh)
+	go bcast.Transmitter(dt.DATA_DISTRIBUTOR_PORT, transmittCh)
+
+	initTimer.Reset(time.Second * 3)
+initialization:
+	for cabRequests := [dt.N_FLOORS]bool{}; ; {
+		select {
+		case receivedData := <-receiveCh:
+			senderIP := receivedData.SenderIP
+			allNodesInfo := receivedData.AllNodeInfo
+
+			for _, nodeInfo := range allNodesInfo {
+				if elevData := nodeInfo.Data; nodeInfo.IP == localIP {
+					for floor, order := range elevData.CabRequests {
+						cabRequests[floor] = cabRequests[floor] || order
+					}
+				} else if nodeInfo.IP == senderIP {
+					allElevData[senderIP] = elevData
+				}
+			}
+		case <-initTimer.C:
+			cabRequestsToElevCh <- cabRequests
+			allElevData[localIP] = <-localElevDataCh
+			broadCastTimer.Reset(1)
+			break initialization
+		}
 	}
-
-	// List of node IDs we are connected to
-	nodeIDs := []string{localID} //, "ID2", "ID3"}
-
 	for {
 		select {
-		case DataFromP2P := <-allElevData_fromP2P:
-			fmt.Printf("\n___DATA_DISTRIBUTOR___: \n AllElevdata from P2P recieved: \n%+v\n", DataFromP2P)
-
-			recivedID := DataFromP2P.ID
-			recivedData := DataFromP2P.AllData[recivedID]
-
-			Local_withID.AllData[recivedID] = recivedData
-
-			allElevData_toP2P <- Local_withID
-
-		case localData := <-localElevData:
-			fmt.Printf("\n___DATA_DISTRIBUTOR___: \n Local Elevdata recieved: \n%+v\n", localData)
-			Local_DataMatrix[localID] = localData
-
-		case orders := <-HallOrderArray:
-			fmt.Printf("\n___DATA_DISTRIBUTOR___: \n HallOrderArray recieved: \n%+v\n", orders)
-			data_aliveNodes := make(dt.AllElevDataJSON)
-			for _, nodeID := range nodeIDs {
-				data_aliveNodes[nodeID] = Local_withID.AllData[nodeID]
+		case peerList = <-peerUpdateCh:
+		case allElevData[localIP] = <-localElevDataCh:
+		case hallRequests := <-HallRequestsCh:
+			aliveNodesElevData := []dt.NodeInfo{{IP: localIP, Data: allElevData[localIP]}}
+			for _, nodeIP := range peerList.Peers {
+				if nodeElevData, nodeElevDataSaved := allElevData[nodeIP]; nodeElevDataSaved {
+					aliveNodesElevData = append(aliveNodesElevData, dt.NodeInfo{IP: nodeIP, Data: nodeElevData})
+				}
 			}
-
-			currentWorldView := dt.CostFuncInput{
-				HallRequests: orders,
-				States:       data_aliveNodes,
+			costFuncInputSlice = dt.CostFuncInputSlice{
+				HallRequests: hallRequests,
+				States:       aliveNodesElevData,
 			}
+			costFuncTimer.Reset(1)
+		case receivedData := <-receiveCh:
+			senderIP := receivedData.SenderIP
+			allNodesInfo := receivedData.AllNodeInfo
 
-			WorldView_toAssigner <- currentWorldView
+			if senderIP == localIP {
+				break
+			}
+			for _, nodeInfo := range allNodesInfo {
+				if nodeInfo.IP == senderIP && !reflect.DeepEqual(allElevData[senderIP], nodeInfo.Data) {
+					allElevData[senderIP] = nodeInfo.Data
+				}
+			}
+		case <-broadCastTimer.C:
+			transmittCh <- dt.AllNodeInfoWithSenderIP{SenderIP: localIP, AllNodeInfo: dt.NodeInfoMapToSlice(allElevData)}
+			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 
+		case <-costFuncTimer.C:
+			select {
+			case costFuncInputCh <- costFuncInputSlice:
+			default:
+				costFuncTimer.Reset(1)
+			}
 		}
 	}
 }
-
-// UNUSED allows unused variables to be included in Go programs
-func UNUSED(x ...interface{}) {}
