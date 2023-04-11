@@ -131,6 +131,7 @@ initialization:
 		case cabButtonEvent := <-cabButtonEventCh:
 			e.CabRequests[cabButtonEvent.Floor] = true
 			elevio.SetButtonLamp(elevio.BT_Cab, cabButtonEvent.Floor, true)
+			elevDataTimer.Reset(1)
 			switch e.Behaviour {
 			case EB_DOOR_OPEN:
 			case EB_MOVING:
@@ -138,7 +139,6 @@ initialization:
 				dirnBehaviourPair := requests_chooseDirection(e)
 				e.Behaviour = dirnBehaviourPair.Behaviour
 				e.Dirn = dirnBehaviourPair.Dirn
-				elevDataTimer.Reset(1)
 
 				switch e.Behaviour {
 				case EB_IDLE:
