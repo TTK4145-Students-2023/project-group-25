@@ -36,7 +36,7 @@ const (
 )
 
 func FSM(
-	hallRequestsCh <-chan [dt.N_FLOORS][2]bool,
+	assignedOrdersCh <-chan [dt.N_FLOORS][2]bool,
 	cabButtonEventCh <-chan elevio.ButtonEvent,
 	floorCh <-chan int,
 	obstrCh <-chan bool,
@@ -108,7 +108,7 @@ initialization:
 
 	for {
 		select {
-		case e.HallRequests = <-hallRequestsCh:
+		case e.HallRequests = <-assignedOrdersCh:
 			switch e.Behaviour {
 			case EB_DOOR_OPEN:
 			case EB_MOVING:

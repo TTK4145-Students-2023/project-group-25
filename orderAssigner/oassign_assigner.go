@@ -17,7 +17,7 @@ func OrderAssigner(localIP string,
 	costFuncInputCh <-chan dt.CostFuncInputSlice,
 	ordersFromMasterCh <-chan []dt.SlaveOrders,
 	ordersToSlavesCh chan<- []dt.SlaveOrders,
-	ordersElevCh chan<- [dt.N_FLOORS][2]bool) {
+	assignedOrdersCh chan<- [dt.N_FLOORS][2]bool) {
 
 	var (
 		hraExecutable     = ""
@@ -93,7 +93,7 @@ func OrderAssigner(localIP string,
 			}
 		case <-localOrdersTimer.C:
 			select {
-			case ordersElevCh <- elevHallOrders:
+			case assignedOrdersCh <- elevHallOrders:
 			default:
 				localOrdersTimer.Reset(1)
 			}

@@ -11,7 +11,7 @@ import (
 // Statemachine for Distributor
 func DataDistributor(localIP string,
 	localElevDataCh <-chan dt.ElevData,
-	HallRequestsCh <-chan [dt.N_FLOORS][2]bool,
+	confirmedOrdersCh <-chan [dt.N_FLOORS][2]bool,
 	costFuncInputCh chan<- dt.CostFuncInputSlice,
 	peerUpdateCh <-chan peers.PeerUpdate,
 	cabRequestsToElevCh chan<- [dt.N_FLOORS]bool,
@@ -65,7 +65,7 @@ initialization:
 		select {
 		case peerList = <-peerUpdateCh:
 		case allElevData[localIP] = <-localElevDataCh:
-		case hallRequests := <-HallRequestsCh:
+		case hallRequests := <-confirmedOrdersCh:
 			aliveNodesElevData := []dt.NodeInfo{{IP: localIP, Data: allElevData[localIP]}}
 			for _, nodeIP := range peerList.Peers {
 				if nodeElevData, nodeElevDataSaved := allElevData[nodeIP]; nodeElevDataSaved {

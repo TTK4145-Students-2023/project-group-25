@@ -29,7 +29,7 @@ const (
 func OrderStateHandler(localIP string,
 	hallBtnPressCh <-chan elevio.ButtonEvent,
 	executedHallOrderCh <-chan elevio.ButtonEvent,
-	hallOrderArrayCh chan<- [dt.N_FLOORS][2]bool, //confHallOrders?
+	confirmedOrdersCh chan<- [dt.N_FLOORS][2]bool,
 	peerUpdateCh <-chan peers.PeerUpdate,
 ) {
 	var (
@@ -111,7 +111,7 @@ func OrderStateHandler(localIP string,
 
 		case <-hallOrderArrayTimer.C:
 			select {
-			case hallOrderArrayCh <- orderStatesToBool(AllNodeOrderStates[localIP]):
+			case confirmedOrdersCh <- orderStatesToBool(AllNodeOrderStates[localIP]):
 			default:
 				hallOrderArrayTimer.Reset(1)
 			}
