@@ -1,6 +1,7 @@
 package orderStateHandler
 
 import (
+	"fmt"
 	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
@@ -91,6 +92,7 @@ func OrderStateHandler(localIP string,
 			}
 
 		case BtnPress := <-hallBtnPressCh:
+			fmt.Printf("%+v\n", AllNodeOrderStates)
 			newOrderStates := AllNodeOrderStates[localIP]
 			if newOrderStates[BtnPress.Floor][BtnPress.Button] == STATE_NONE {
 				newOrderStates[BtnPress.Floor][BtnPress.Button] = STATE_NEW
