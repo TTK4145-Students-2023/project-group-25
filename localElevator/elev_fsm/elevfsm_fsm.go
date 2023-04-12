@@ -41,7 +41,7 @@ func FSM(
 	floorCh <-chan int,
 	obstrCh <-chan bool,
 	elevDataCh chan<- dt.ElevData,
-	executedHallOrdersCh chan<- []elevio.ButtonEvent,
+	executedHallOrderCh chan<- elevio.ButtonEvent,
 	initCabRequestsCh <-chan [dt.N_FLOORS]bool,
 	peerTxEnableCh chan<- bool) {
 
@@ -49,8 +49,8 @@ func FSM(
 		watchDogTimer  = time.NewTimer(time.Hour)
 		watchDogStatus = WD_ALIVE
 
-		executedHallOrders      = []elevio.ButtonEvent{}
-		executedHallOrdersTimer = time.NewTimer(time.Hour)
+		executedHallOrder      = elevio.ButtonEvent{}
+		executedHallOrderTimer = time.NewTimer(time.Hour)
 
 		obstr         = false
 		doorOpenTimer = time.NewTimer(time.Hour)
@@ -72,7 +72,7 @@ func FSM(
 	doorOpenTimer.Stop()
 	elevDataTimer.Stop()
 	watchDogTimer.Stop()
-	executedHallOrdersTimer.Stop()
+	executedHallOrderTimer.Stop()
 
 initialization:
 	for {
@@ -173,11 +173,9 @@ initialization:
 			case EB_DOOR_OPEN:
 				e.CabRequests[e.Floor] = false
 				elevio.SetButtonLamp(elevio.BT_Cab, e.Floor, false)
-				executedHallOrders = requests_getExecutedHallOrders(e)
-				if len(executedHallOrders) > 0 {
-					e = requests_clearLocalHallRequest(e, executedHallOrders)
-					executedHallOrdersTimer.Reset(1)
-				}
+				executedHallOrder = requests_getExecutedHallOrder(e)
+				e.HallRequests[executedHallOrder.Floor][executedHallOrder.Button] = false
+				executedHallOrderTimer.Reset(1)
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Behaviour = dirnBehaviourPair.Behaviour
@@ -224,13 +222,11 @@ initialization:
 				peerTxEnableCh <- false
 				watchDogStatus = WD_DEAD
 			}
-		case <-executedHallOrdersTimer.C:
-			executedHallOrdersCopy := make([]elevio.ButtonEvent, len(executedHallOrders))
-			copy(executedHallOrdersCopy, executedHallOrders)
+		case <-executedHallOrderTimer.C:
 			select {
-			case executedHallOrdersCh <- executedHallOrdersCopy:
+			case executedHallOrderCh <- executedHallOrder:
 			default:
-				executedHallOrdersTimer.Reset(1)
+				executedHallOrderTimer.Reset(1)
 			}
 		}
 	}

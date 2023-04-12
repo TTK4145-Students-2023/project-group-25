@@ -22,7 +22,7 @@ var (
 	ordersFromMasterCh           = make(chan []dt.SlaveOrders)
 	ordersToSlavesCh             = make(chan []dt.SlaveOrders)
 	hallRequestsCh               = make(chan [dt.N_FLOORS][2]bool)
-	executedHallOrdersCh         = make(chan []elevio.ButtonEvent)
+	executedHallOrderCh          = make(chan elevio.ButtonEvent)
 	peerUpdate_MSCh              = make(chan peers.PeerUpdate)
 	peerUpdate_DataDistributorCh = make(chan peers.PeerUpdate)
 	peerUpdate_OrderHandlerCh    = make(chan peers.PeerUpdate)
@@ -78,7 +78,7 @@ func main() {
 
 	go orderStateHandler.OrderStateHandler(localIP,
 		hallButtonEventCh,
-		executedHallOrdersCh,
+		executedHallOrderCh,
 		hallOrderArrayCh,
 		peerUpdate_OrderHandlerCh)
 
@@ -89,9 +89,11 @@ func main() {
 		floorCh,
 		obstrCh,
 		elevDataCh,
-		executedHallOrdersCh,
+		executedHallOrderCh,
 		initCabRequestsCh,
 		peerTxEnableCh)
 
-	btnassign.ButtonHandler(buttonEventCh, hallButtonEventCh, cabButtonEventCh)
+	go btnassign.ButtonHandler(buttonEventCh, hallButtonEventCh, cabButtonEventCh)
+
+	select {}
 }

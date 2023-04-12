@@ -28,7 +28,7 @@ const (
 
 func OrderStateHandler(localIP string,
 	hallBtnPressCh <-chan elevio.ButtonEvent,
-	executedHallOrdersCh <-chan []elevio.ButtonEvent,
+	executedHallOrderCh <-chan elevio.ButtonEvent,
 	hallOrderArrayCh chan<- [dt.N_FLOORS][2]bool, //confHallOrders?
 	peerUpdateCh <-chan peers.PeerUpdate,
 ) {
@@ -97,13 +97,11 @@ func OrderStateHandler(localIP string,
 				AllNodeOrderStates[localIP] = newOrderStates
 				hallOrderArrayTimer.Reset(1)
 			}
-		case executedOrders := <-executedHallOrdersCh:
+		case executedOrder := <-executedHallOrderCh:
 			newOrderStates := AllNodeOrderStates[localIP]
-			for _, order := range executedOrders {
-				if newOrderStates[order.Floor][order.Button] == STATE_CONFIRMED {
-					newOrderStates[order.Floor][order.Button] = STATE_NONE
-					elevio.SetButtonLamp(order.Button, order.Floor, false)
-				}
+			if newOrderStates[executedOrder.Floor][executedOrder.Button] == STATE_CONFIRMED {
+				newOrderStates[executedOrder.Floor][executedOrder.Button] = STATE_NONE
+				elevio.SetButtonLamp(executedOrder.Button, executedOrder.Floor, false)
 			}
 			AllNodeOrderStates[localIP] = newOrderStates
 			hallOrderArrayTimer.Reset(1)

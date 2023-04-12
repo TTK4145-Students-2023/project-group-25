@@ -108,38 +108,32 @@ func requests_shouldStop(e Elevator) bool {
 	}
 }
 
-func requests_getExecutedHallOrders(e Elevator) []elevio.ButtonEvent {
+func requests_getExecutedHallOrder(e Elevator) elevio.ButtonEvent {
 	requests := requests_mergeHallAndCab(e.HallRequests, e.CabRequests)
-	orders := []elevio.ButtonEvent{}
 	switch e.Dirn {
 	case elevio.MD_Stop:
-		if requests[e.Floor][elevio.BT_HallDown] {
-			orders = append(orders, elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallDown})
-		}
-		if requests[e.Floor][elevio.BT_HallUp] {
-			orders = append(orders, elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallUp})
+		if requests[e.Floor][elevio.BT_HallUp] && !requests_above(e) {
+			return elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallUp}
+		} else if requests[e.Floor][elevio.BT_HallDown] && !requests_below(e) {
+			return elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallDown}
+		} else if requests[e.Floor][elevio.BT_HallDown] && requests_below(e) {
+			return elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallDown}
+		} else {
+			return elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallUp}
 		}
 	case elevio.MD_Up:
-		if requests[e.Floor][elevio.BT_HallDown] && !requests_above(e) {
-			orders = append(orders, elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallDown})
-		}
-		if requests[e.Floor][elevio.BT_HallUp] {
-			orders = append(orders, elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallUp})
+		if !requests[e.Floor][elevio.BT_HallUp] && !requests_above(e) {
+			return elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallDown}
+		} else {
+			return elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallUp}
 		}
 	case elevio.MD_Down:
-		if requests[e.Floor][elevio.BT_HallUp] && !requests_below(e) {
-			orders = append(orders, elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallUp})
+		if !requests[e.Floor][elevio.BT_HallDown] && !requests_below(e) {
+			return elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallUp}
+		} else {
+			return elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallDown}
 		}
-		if requests[e.Floor][elevio.BT_HallDown] {
-			orders = append(orders, elevio.ButtonEvent{Floor: e.Floor, Button: elevio.BT_HallDown})
-		}
+	default:
+		panic("Elevator request error")
 	}
-	return orders
-}
-
-func requests_clearLocalHallRequest(e Elevator, clearEvent []elevio.ButtonEvent) Elevator {
-	for i := range clearEvent {
-		e.HallRequests[clearEvent[i].Floor][clearEvent[i].Button] = false
-	}
-	return e
 }
