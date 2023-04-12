@@ -4,7 +4,6 @@ package main
 import (
 	localip "project/Network/Utilities/localip"
 	peers "project/Network/Utilities/peers"
-	masterSlaveNTW "project/Network/masterSlaveNTW"
 	dt "project/commonDataTypes"
 	elevDataDistributor "project/distributingSystem/elevDataDistributor"
 	orderStateHandler "project/distributingSystem/orderStateHandler"
@@ -16,14 +15,12 @@ import (
 )
 
 var (
-	masterSlaveRoleCh = make(chan dt.MasterSlaveRole)
+	masterSlaveRoleCh = make(chan dt.AssignerBehaviour)
 
 	costFuncInputCh              = make(chan dt.CostFuncInputSlice)
-	ordersFromMasterCh           = make(chan []dt.SlaveOrders)
-	ordersToSlavesCh             = make(chan []dt.SlaveOrders)
 	assignedOrdersCh             = make(chan [dt.N_FLOORS][2]bool)
 	executedHallOrderCh          = make(chan elevio.ButtonEvent)
-	peerUpdate_MSCh              = make(chan peers.PeerUpdate)
+	peerUpdate_OrderAssCh        = make(chan peers.PeerUpdate)
 	peerUpdate_DataDistributorCh = make(chan peers.PeerUpdate)
 	peerUpdate_OrderHandlerCh    = make(chan peers.PeerUpdate)
 	peerTxEnableCh               = make(chan bool)
@@ -52,21 +49,13 @@ func main() {
 
 	go peers.PeerListHandler(localIP,
 		peerTxEnableCh,
-		peerUpdate_MSCh,
+		peerUpdate_OrderAssCh,
 		peerUpdate_DataDistributorCh,
 		peerUpdate_OrderHandlerCh)
 
-	go masterSlaveNTW.MasterSlaveNTW(localIP,
-		peerUpdate_MSCh,
-		ordersToSlavesCh,
-		ordersFromMasterCh,
-		masterSlaveRoleCh)
-
 	go oassign.OrderAssigner(localIP,
-		masterSlaveRoleCh,
+		peerUpdate_OrderHandlerCh,
 		costFuncInputCh,
-		ordersFromMasterCh,
-		ordersToSlavesCh,
 		assignedOrdersCh)
 
 	go elevDataDistributor.DataDistributor(localIP,

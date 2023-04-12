@@ -4,8 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"project/Network/Utilities/bcast"
+	peers "project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
+	"reflect"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,24 +18,29 @@ import (
 // This means they must start with a capital letter, so we need to use field renaming struct tags to make them camelCase
 
 func OrderAssigner(localIP string,
-	masterSlaveRoleCh <-chan dt.MasterSlaveRole,
+	peerUpdateCh <-chan peers.PeerUpdate,
 	costFuncInputCh <-chan dt.CostFuncInputSlice,
-	ordersFromMasterCh <-chan []dt.SlaveOrders,
-	ordersToSlavesCh chan<- []dt.SlaveOrders,
 	assignedOrdersCh chan<- [dt.N_FLOORS][2]bool) {
 
 	var (
+		receiveOrdersCh   = make(chan map[string][dt.N_FLOORS][2]bool)
+		transmittOrdersCh = make(chan map[string][dt.N_FLOORS][2]bool)
+
 		hraExecutable     = ""
-		assignerBehaviour = dt.MS_SLAVE
+		assignerBehaviour = dt.MASTER
 
-		elevHallOrders = [dt.N_FLOORS][2]bool{}
-		ordersToSlaves = map[string][dt.N_FLOORS][2]bool{}
+		localHallOrders       = [dt.N_FLOORS][2]bool{}
+		ordersToExternalNodes = map[string][dt.N_FLOORS][2]bool{}
+		//ordersFromMaster      = [dt.N_FLOORS][2]bool{}
 
-		localOrdersTimer    = time.NewTimer(time.Hour)
-		ordersToSlavesTimer = time.NewTimer(time.Hour)
+		broadCastTimer   = time.NewTimer(1)
+		localOrdersTimer = time.NewTimer(time.Hour)
 	)
+	broadCastTimer.Stop()
 	localOrdersTimer.Stop()
-	ordersToSlavesTimer.Stop()
+
+	go bcast.Receiver(dt.MS_PORT, receiveOrdersCh)
+	go bcast.Transmitter(dt.MS_PORT, transmittOrdersCh)
 
 	switch runtime.GOOS {
 	case "linux":
@@ -40,14 +50,20 @@ func OrderAssigner(localIP string,
 	default:
 		panic("OS not supported")
 	}
+
 	for {
 		select {
-		case assignerBehaviour = <-masterSlaveRoleCh:
+		case peerUpdate := <-peerUpdateCh:
+			fmt.Println("p update")
+			assignerBehaviour = assignRole(localIP, peerUpdate.Peers)
+			fmt.Println(assignerBehaviour)
 		case costFuncInput := <-costFuncInputCh:
-			input := dt.SliceToCostFuncInput(costFuncInput)
+			fmt.Println("cos func update")
+			fmt.Printf("%+v\n", costFuncInput)
+			input := dt.CostFuncInputSliceToMap(costFuncInput)
 			switch assignerBehaviour {
-			case dt.MS_SLAVE:
-			case dt.MS_MASTER:
+			case dt.SLAVE:
+			case dt.MASTER:
 				jsonBytes, err := json.Marshal(input)
 				if err != nil {
 					fmt.Println("json.Marshal error: ", err)
@@ -66,37 +82,62 @@ func OrderAssigner(localIP string,
 					break
 				}
 				if newElevHallOrders, ok := output[localIP]; ok {
-					elevHallOrders = newElevHallOrders
+					localHallOrders = newElevHallOrders
 					localOrdersTimer.Reset(1)
 				}
-				ordersToSlaves = output
-				ordersToSlavesTimer.Reset(1)
+				ordersToExternalNodes = output
+				broadCastTimer.Reset(1)
 			}
-		case ordersFromMaster := <-ordersFromMasterCh:
+		case newOrders := <-receiveOrdersCh:
 
-			switch assignerBehaviour {
-			case dt.MS_MASTER:
-			case dt.MS_SLAVE:
-
-				for _, newHallOrder := range ordersFromMaster {
-					if newHallOrder.IP == localIP {
-						elevHallOrders = newHallOrder.Orders
-						localOrdersTimer.Reset(1)
-					}
+			if !reflect.DeepEqual(newOrders[localIP], localHallOrders) {
+				fmt.Println("New order from external Master")
+				fmt.Printf("new: %+v\n stored: %+v\n", newOrders[localIP], localHallOrders)
+				switch assignerBehaviour {
+				case dt.MASTER:
+				case dt.SLAVE:
+					localHallOrders = newOrders[localIP]
 				}
 			}
-		case <-ordersToSlavesTimer.C:
-			select {
-			case ordersToSlavesCh <- dt.SlaveOrdersMapToSlice(ordersToSlaves):
-			default:
-				ordersToSlavesTimer.Reset(1)
+		case <-broadCastTimer.C:
+
+			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
+			switch assignerBehaviour {
+			case dt.SLAVE:
+			case dt.MASTER:
+				
+				transmittOrdersCh <- ordersToExternalNodes
+				//fmt.Println("Orders Transmitted")
 			}
 		case <-localOrdersTimer.C:
 			select {
-			case assignedOrdersCh <- elevHallOrders:
+			case assignedOrdersCh <- localHallOrders:
 			default:
 				localOrdersTimer.Reset(1)
 			}
 		}
 	}
+}
+
+func assignRole(localIP string, peers []string) dt.AssignerBehaviour {
+	if len(peers) == 0 {
+		return dt.MASTER
+	}
+
+	localIPArr := strings.Split(localIP, ".")
+	LocalLastByte, _ := strconv.Atoi(localIPArr[len(localIPArr)-1])
+
+	maxIP := LocalLastByte
+	for _, externalIP := range peers {
+		externalIPArr := strings.Split(externalIP, ".")
+		externalLastByte, _ := strconv.Atoi(externalIPArr[len(externalIPArr)-1])
+		if externalLastByte > maxIP {
+			maxIP = externalLastByte
+		}
+	}
+
+	if maxIP <= LocalLastByte {
+		return dt.MASTER
+	}
+	return dt.SLAVE
 }

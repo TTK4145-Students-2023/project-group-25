@@ -20,7 +20,7 @@ const timeout = 500 * time.Millisecond
 
 func PeerListHandler(localIP string,
 	peerTxEnableCh <-chan bool,
-	peerUpdate_MS chan<- PeerUpdate,
+	peerUpdate_OrderAssCh chan<- PeerUpdate,
 	peerUpdate_DataDistributor chan<- PeerUpdate,
 	peerUpdate_OrderHandler chan<- PeerUpdate,
 ) {
@@ -59,7 +59,7 @@ func PeerListHandler(localIP string,
 			}
 		case <-timerMS.C:
 			select {
-			case peerUpdate_MS <- peerList:
+			case peerUpdate_OrderAssCh <- peerList:
 			default:
 				timerMS.Reset(1)
 			}

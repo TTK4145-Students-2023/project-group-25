@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-type MasterSlaveRole string
+type AssignerBehaviour string
 
 // ****** ELEVATOR CONSTANTS ********
 const (
@@ -14,16 +14,16 @@ const (
 
 // ****** NETWORK CONSTANTS ********
 const (
-	MS_PORT                             = 15660
-	PEER_LIST_PORT                      = 15669
-	ORDERSTATE_PORT                     = 15668
-	DATA_DISTRIBUTOR_PORT               = 15667
+	MS_PORT                             = 15480
+	PEER_LIST_PORT                      = 15489
+	ORDERSTATE_PORT                     = 15488
+	DATA_DISTRIBUTOR_PORT               = 15487
 	BROADCAST_PERIOD      time.Duration = 100 * time.Millisecond
 )
 
 const (
-	MS_MASTER MasterSlaveRole = "master"
-	MS_SLAVE  MasterSlaveRole = "slave"
+	MASTER AssignerBehaviour = "master"
+	SLAVE  AssignerBehaviour = "slave"
 )
 
 type ElevData struct {
@@ -82,7 +82,7 @@ func NodeInfoMapToSlice(nodesInfoMap map[string]ElevData) []NodeInfo {
 	return nodesInfoSlice
 }
 
-func SliceToCostFuncInput(costFuncInputSlice CostFuncInputSlice) CostFuncInput {
+func CostFuncInputSliceToMap(costFuncInputSlice CostFuncInputSlice) CostFuncInput {
 	allNodeInfo := map[string]ElevData{}
 	for _, nodeInfo := range costFuncInputSlice.States {
 		allNodeInfo[nodeInfo.IP] = nodeInfo.Data
