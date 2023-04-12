@@ -1,10 +1,10 @@
-package btnassign
+package btnEventSplitter
 
 import (
 	elevio "project/localElevator/elev_driver"
 )
 
-func ButtonHandler(btnEvent chan elevio.ButtonEvent,
+func BtnEventSplitter(btnEvent chan elevio.ButtonEvent,
 	hallEvent chan elevio.ButtonEvent,
 	cabEvent chan elevio.ButtonEvent) {
 	for {

@@ -5,10 +5,10 @@ import (
 	localip "project/Network/Utilities/localip"
 	peers "project/Network/Utilities/peers"
 	masterSlaveNTW "project/Network/masterSlaveNTW"
-	btnassign "project/buttonAssigner"
 	dt "project/commonDataTypes"
 	elevDataDistributor "project/distributingSystem/elevDataDistributor"
 	orderStateHandler "project/distributingSystem/orderStateHandler"
+	btnEventSplitter "project/localElevator/btnEventSplitter"
 	elevio "project/localElevator/elev_driver"
 	elevfsm "project/localElevator/elev_fsm"
 	oassign "project/orderAssigner"
@@ -93,7 +93,7 @@ func main() {
 		initCabRequestsCh,
 		peerTxEnableCh)
 
-	go btnassign.ButtonHandler(buttonEventCh, hallButtonEventCh, cabButtonEventCh)
+	go btnEventSplitter.BtnEventSplitter(buttonEventCh, hallButtonEventCh, cabButtonEventCh)
 
 	select {}
 }
