@@ -46,12 +46,12 @@ initialization:
 			senderIP := receivedData.SenderIP
 			allNodesInfo := receivedData.AllNodeInfo
 
-			for _, receivedNodeInfo := range allNodesInfo {
-				if receivedElevData := receivedNodeInfo.Data; receivedNodeInfo.IP == localIP {
+			for nodeIP, receivedElevData := range allNodesInfo {
+				if nodeIP == localIP {
 					for floor, receivedOrder := range receivedElevData.CabRequests {
 						initCabRequests[floor] = initCabRequests[floor] || receivedOrder
 					}
-				} else if receivedNodeInfo.IP == senderIP {
+				} else if nodeIP == senderIP {
 					allElevData[senderIP] = receivedElevData
 				}
 			}
@@ -81,18 +81,18 @@ initialization:
 			costFuncTimer.Reset(1)
 		case receivedData := <-receiveCh:
 			senderIP := receivedData.SenderIP
-			allNodesInfo := receivedData.AllNodeInfo
+			receivedNodesInfo := receivedData.AllNodeInfo
 
 			if senderIP == localIP {
 				break
 			}
-			for _, receivedNodeInfo := range allNodesInfo {
-				if receivedNodeInfo.IP == senderIP && !reflect.DeepEqual(allElevData[senderIP], receivedNodeInfo.Data) {
-					allElevData[senderIP] = receivedNodeInfo.Data
+			for NodeIP, receivedElevData := range receivedNodesInfo {
+				if NodeIP == senderIP && !reflect.DeepEqual(allElevData[senderIP], receivedElevData) {
+					allElevData[senderIP] = receivedElevData
 				}
 			}
 		case <-broadCastTimer.C:
-			transmittCh <- dt.AllNodeInfoWithSenderIP{SenderIP: localIP, AllNodeInfo: dt.NodeInfoMapToSlice(allElevData)}
+			transmittCh <- dt.AllNodeInfoWithSenderIP{SenderIP: localIP, AllNodeInfo: allElevData}
 			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 
 		case <-costFuncTimer.C:

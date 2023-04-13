@@ -39,8 +39,8 @@ type NodeInfo struct {
 }
 
 type AllNodeInfoWithSenderIP struct {
-	SenderIP    string     `json:"senderIp"`
-	AllNodeInfo []NodeInfo `json:"allNodeInfo"`
+	SenderIP    string              `json:"senderIp"`
+	AllNodeInfo map[string]ElevData `json:"allNodeInfo"`
 }
 
 type CostFuncInput struct {
