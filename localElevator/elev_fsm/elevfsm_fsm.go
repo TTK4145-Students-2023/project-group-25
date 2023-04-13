@@ -176,6 +176,7 @@ initialization:
 				executedHallOrder = requests_getExecutedHallOrder(e)
 				e.HallRequests[executedHallOrder.Floor][executedHallOrder.Button] = false
 				executedHallOrderTimer.Reset(1)
+				watchDogTimer.Reset(watchDogTime)
 				dirnBehaviourPair := requests_chooseDirection(e)
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Behaviour = dirnBehaviourPair.Behaviour

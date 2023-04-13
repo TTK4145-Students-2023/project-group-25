@@ -104,6 +104,7 @@ func OrderStateHandler(localIP string,
 				elevio.SetButtonLamp(executedOrder.Button, executedOrder.Floor, false)
 			}
 			AllNodeOrderStates[localIP] = newOrderStates
+			broadCastTimer.Reset(1)
 			hallOrderArrayTimer.Reset(1)
 		case <-broadCastTimer.C:
 			transmitCh <- NodeOrderStates{IP: localIP, OrderStates: AllNodeOrderStates[localIP]}
