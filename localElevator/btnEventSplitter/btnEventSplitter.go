@@ -1,7 +1,7 @@
 package btnEventSplitter
 
 import (
-	elevio "project/localElevator/elev_driver"
+	elevio "project/localElevator/driver"
 )
 
 func BtnEventSplitter(btnEvent chan elevio.ButtonEvent,

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"project/Network/Utilities/bcast"
-	peers "project/Network/Utilities/peers"
-	dt "project/commonDataTypes"
+	dt "project/dataTypes"
+	"project/network/bcast"
+	peers "project/network/peers"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -14,8 +14,12 @@ import (
 	"time"
 )
 
-// Struct members must be public in order to be accessible by json.Marshal/.Unmarshal
-// This means they must start with a capital letter, so we need to use field renaming struct tags to make them camelCase
+type AssignerBehaviour string
+
+const (
+	MASTER AssignerBehaviour = "master"
+	SLAVE  AssignerBehaviour = "slave"
+)
 
 func OrderAssigner(localIP string,
 	peerUpdateCh <-chan peers.PeerUpdate,
@@ -27,11 +31,10 @@ func OrderAssigner(localIP string,
 		transmittOrdersCh = make(chan map[string][dt.N_FLOORS][2]bool)
 
 		hraExecutable     = ""
-		assignerBehaviour = dt.MASTER
+		assignerBehaviour = MASTER
 
 		localHallOrders       = [dt.N_FLOORS][2]bool{}
 		ordersToExternalNodes = map[string][dt.N_FLOORS][2]bool{}
-		//ordersFromMaster      = [dt.N_FLOORS][2]bool{}
 
 		broadCastTimer   = time.NewTimer(1)
 		localOrdersTimer = time.NewTimer(time.Hour)
@@ -54,12 +57,12 @@ func OrderAssigner(localIP string,
 	for {
 		select {
 		case peerUpdate := <-peerUpdateCh:
-			assignerBehaviour = assignRole(localIP, peerUpdate.Peers)
+			assignerBehaviour = getAssignerBehaviour(localIP, peerUpdate.Peers)
 		case costFuncInput := <-costFuncInputCh:
 			input := dt.CostFuncInputSliceToMap(costFuncInput)
 			switch assignerBehaviour {
-			case dt.SLAVE:
-			case dt.MASTER:
+			case SLAVE:
+			case MASTER:
 				jsonBytes, err := json.Marshal(input)
 				if err != nil {
 					fmt.Println("json.Marshal error: ", err)
@@ -88,8 +91,8 @@ func OrderAssigner(localIP string,
 
 			if !reflect.DeepEqual(newOrders[localIP], localHallOrders) {
 				switch assignerBehaviour {
-				case dt.MASTER:
-				case dt.SLAVE:
+				case MASTER:
+				case SLAVE:
 					localHallOrders = newOrders[localIP]
 					localOrdersTimer.Reset(1)
 				}
@@ -98,9 +101,8 @@ func OrderAssigner(localIP string,
 
 			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 			switch assignerBehaviour {
-			case dt.SLAVE:
-			case dt.MASTER:
-
+			case SLAVE:
+			case MASTER:
 				transmittOrdersCh <- ordersToExternalNodes
 			}
 		case <-localOrdersTimer.C:
@@ -113,9 +115,9 @@ func OrderAssigner(localIP string,
 	}
 }
 
-func assignRole(localIP string, peers []string) dt.AssignerBehaviour {
+func getAssignerBehaviour(localIP string, peers []string) AssignerBehaviour {
 	if len(peers) == 0 {
-		return dt.MASTER
+		return MASTER
 	}
 
 	localIPArr := strings.Split(localIP, ".")
@@ -131,7 +133,7 @@ func assignRole(localIP string, peers []string) dt.AssignerBehaviour {
 	}
 
 	if maxIP <= LocalLastByte {
-		return dt.MASTER
+		return MASTER
 	}
-	return dt.SLAVE
+	return SLAVE
 }

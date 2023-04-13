@@ -1,14 +1,13 @@
 package elevDataDistributor
 
 import (
-	"project/Network/Utilities/bcast"
-	"project/Network/Utilities/peers"
-	dt "project/commonDataTypes"
+	dt "project/dataTypes"
+	"project/network/bcast"
+	"project/network/peers"
 	"reflect"
 	"time"
 )
 
-// Statemachine for Distributor
 func DataDistributor(localIP string,
 	localElevDataCh <-chan dt.ElevData,
 	confirmedOrdersCh <-chan [dt.N_FLOORS][2]bool,
@@ -62,6 +61,7 @@ initialization:
 			break initialization
 		}
 	}
+
 	for {
 		select {
 		case peerList = <-peerUpdateCh:

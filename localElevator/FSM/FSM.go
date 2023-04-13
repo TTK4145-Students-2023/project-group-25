@@ -1,8 +1,8 @@
 package elevfsm
 
 import (
-	dt "project/commonDataTypes"
-	elevio "project/localElevator/elev_driver"
+	dt "project/dataTypes"
+	elevio "project/localElevator/driver"
 	"time"
 )
 
@@ -32,7 +32,7 @@ type WD_Role string
 const (
 	WD_ALIVE     WD_Role = "alive"
 	WD_DEAD      WD_Role = "dead"
-	watchDogTime         = 5 * time.Second
+	watchDogTime         = dt.WD_TIMEOUT
 )
 
 func FSM(
@@ -66,7 +66,7 @@ func FSM(
 				{false, false},
 				{false, false},
 				{false, false}},
-			doorOpenDuration: 3 * time.Second,
+			doorOpenDuration: dt.DOOR_OPEN_TIME,
 		}
 	)
 	doorOpenTimer.Stop()
@@ -176,13 +176,13 @@ initialization:
 				executedHallOrder = requests_getExecutedHallOrder(e)
 				e.HallRequests[executedHallOrder.Floor][executedHallOrder.Button] = false
 				executedHallOrderTimer.Reset(1)
-				watchDogTimer.Reset(watchDogTime)
 				dirnBehaviourPair := requests_chooseDirection(e)
+				// If the direction or behaviour has changed, update the elevator data
 				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
 					e.Behaviour = dirnBehaviourPair.Behaviour
 					e.Dirn = dirnBehaviourPair.Dirn
-					elevDataTimer.Reset(1)
 				}
+				elevDataTimer.Reset(1)
 				switch e.Behaviour {
 				case EB_DOOR_OPEN:
 					doorOpenTimer.Reset(e.doorOpenDuration)

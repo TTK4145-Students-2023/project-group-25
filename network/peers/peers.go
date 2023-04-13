@@ -3,8 +3,8 @@ package peers
 import (
 	"fmt"
 	"net"
-	"project/Network/Utilities/conn"
-	dt "project/commonDataTypes"
+	"project/network/conn"
+	dt "project/dataTypes"
 	"sort"
 	"time"
 )

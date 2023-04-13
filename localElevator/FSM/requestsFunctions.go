@@ -1,8 +1,8 @@
 package elevfsm
 
 import (
-	dt "project/commonDataTypes"
-	elevio "project/localElevator/elev_driver"
+	dt "project/dataTypes"
+	elevio "project/localElevator/driver"
 )
 
 func requests_mergeHallAndCab(hallRequests [dt.N_FLOORS][2]bool, cabRequests [dt.N_FLOORS]bool) [dt.N_FLOORS][dt.N_BUTTONS]bool {
