@@ -96,6 +96,7 @@ func OrderAssigner(localIP string,
 				case dt.MASTER:
 				case dt.SLAVE:
 					localHallOrders = newOrders[localIP]
+					localOrdersTimer.Reset(1)
 				}
 			}
 		case <-broadCastTimer.C:
@@ -106,8 +107,8 @@ func OrderAssigner(localIP string,
 			case dt.MASTER:
 
 				transmittOrdersCh <- ordersToExternalNodes
-				fmt.Println("Orders Transmitted")
-				fmt.Println(ordersToExternalNodes)
+				// fmt.Println("Orders Transmitted")
+				// fmt.Println(ordersToExternalNodes)
 			}
 		case <-localOrdersTimer.C:
 			select {
