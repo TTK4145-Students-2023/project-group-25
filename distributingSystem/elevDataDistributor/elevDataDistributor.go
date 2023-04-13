@@ -1,7 +1,6 @@
 package elevDataDistributor
 
 import (
-	"fmt"
 	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
@@ -68,7 +67,6 @@ initialization:
 		case peerList = <-peerUpdateCh:
 		case allElevData[localIP] = <-localElevDataCh:
 		case hallRequests := <-confirmedOrdersCh:
-			fmt.Printf("REQ: %+v\n", hallRequests)
 			aliveNodesData := []dt.NodeInfo{{IP: localIP, Data: allElevData[localIP]}}
 			for _, nodeIP := range peerList.Peers {
 				nodeData, nodeDataExists := allElevData[nodeIP]

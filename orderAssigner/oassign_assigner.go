@@ -54,12 +54,11 @@ func OrderAssigner(localIP string,
 	for {
 		select {
 		case peerUpdate := <-peerUpdateCh:
-			fmt.Println("p update")
+			fmt.Printf("p update in O.Ass: %+v\n", peerUpdate)
 			assignerBehaviour = assignRole(localIP, peerUpdate.Peers)
 			fmt.Println(assignerBehaviour)
 		case costFuncInput := <-costFuncInputCh:
-			fmt.Println("cos func update")
-			fmt.Printf("%+v\n", costFuncInput)
+			fmt.Println("Received CostFuncInput")
 			input := dt.CostFuncInputSliceToMap(costFuncInput)
 			switch assignerBehaviour {
 			case dt.SLAVE:
@@ -105,9 +104,10 @@ func OrderAssigner(localIP string,
 			switch assignerBehaviour {
 			case dt.SLAVE:
 			case dt.MASTER:
-				
+
 				transmittOrdersCh <- ordersToExternalNodes
-				//fmt.Println("Orders Transmitted")
+				fmt.Println("Orders Transmitted")
+				fmt.Println(ordersToExternalNodes)
 			}
 		case <-localOrdersTimer.C:
 			select {

@@ -54,7 +54,7 @@ func main() {
 		peerUpdate_OrderHandlerCh)
 
 	go oassign.OrderAssigner(localIP,
-		peerUpdate_OrderHandlerCh,
+		peerUpdate_OrderAssCh,
 		costFuncInputCh,
 		assignedOrdersCh)
 
