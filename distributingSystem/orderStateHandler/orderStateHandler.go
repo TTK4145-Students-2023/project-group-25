@@ -1,11 +1,13 @@
 package orderStateHandler
 
 import (
+	"fmt"
 	"project/Network/Utilities/bcast"
 	"project/Network/Utilities/peers"
 	dt "project/commonDataTypes"
 	elevio "project/localElevator/elev_driver"
 	"reflect"
+	"sort"
 	"time"
 )
 
@@ -14,10 +16,6 @@ type NodeOrderStates struct {
 	OrderStates [dt.N_FLOORS][2]OrderState `json:"orderStates"`
 }
 
-type AllNOS_WithSenderIP struct {
-	SenderIP string            `json:"ip"`
-	AllNOS   []NodeOrderStates `json:"allNOS"`
-}
 type OrderState string
 
 const (
@@ -27,23 +25,23 @@ const (
 )
 
 func OrderStateHandler(localIP string,
-	hallBtnPressCh <-chan elevio.ButtonEvent,
+	hallButtonEventCh <-chan elevio.ButtonEvent,
 	executedHallOrderCh <-chan elevio.ButtonEvent,
-	confirmedOrdersCh chan<- [dt.N_FLOORS][2]bool,
+	orderStatesToBoolCh chan<- [dt.N_FLOORS][2]bool,
 	peerUpdateCh <-chan peers.PeerUpdate,
 ) {
 	var (
 		peerList           = peers.PeerUpdate{}
 		AllNodeOrderStates = map[string][dt.N_FLOORS][2]OrderState{}
 
-		broadCastTimer      = time.NewTimer(time.Hour)
-		hallOrderArrayTimer = time.NewTimer(time.Hour)
+		broadCastTimer    = time.NewTimer(time.Hour)
+		statesToBoolTimer = time.NewTimer(time.Hour)
 
 		receiveCh  = make(chan NodeOrderStates)
 		transmitCh = make(chan NodeOrderStates)
 	)
 	broadCastTimer.Stop()
-	hallOrderArrayTimer.Stop()
+	statesToBoolTimer.Stop()
 
 	go bcast.Receiver(dt.ORDERSTATE_PORT, receiveCh)
 	go bcast.Transmitter(dt.ORDERSTATE_PORT, transmitCh)
@@ -52,98 +50,93 @@ func OrderStateHandler(localIP string,
 		select {
 		case peerList = <-peerUpdateCh:
 			newNodeOrderStates := removeDeadNodes(peerList, AllNodeOrderStates, localIP)
-			newNodeOrderStates = addNewEmptyNodes(peerList, newNodeOrderStates)
+			newNodeOrderStates = addAliveNodes(peerList, newNodeOrderStates)
 			newNodeOrderStates = withdrawOrderConfirmations(peerList, newNodeOrderStates)
 			AllNodeOrderStates = newNodeOrderStates
 			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
-			hallOrderArrayTimer.Reset(1)
+			statesToBoolTimer.Reset(1)
 
-		case newNodeOrderStates := <-receiveCh:
-			newData := newNodeOrderStates.OrderStates
-			senderIP := newNodeOrderStates.IP
-			if senderIP == localIP || reflect.DeepEqual(newData, AllNodeOrderStates[senderIP]) {
+		case receivedData := <-receiveCh:
+			receivedStates := receivedData.OrderStates
+			senderIP := receivedData.IP
+			if senderIP == localIP || reflect.DeepEqual(receivedStates, AllNodeOrderStates[senderIP]) {
 				break
 			}
-			AllNodeOrderStates[senderIP] = newData
+			AllNodeOrderStates[senderIP] = receivedStates
 
-			for nodeIP := range AllNodeOrderStates {
-				if nodeIP == localIP {
-					continue
-				}
-				newOrderStates := AllNodeOrderStates[localIP]
-				for floor := range newData {
-					for btn, inputBtnState := range newData[floor] {
-						newState := updateOrderState(inputBtnState, newOrderStates[floor][btn])
-						newOrderStates[floor][btn] = newState
-						switch newState {
-						case STATE_NEW:
-						case STATE_CONFIRMED:
-							elevio.SetButtonLamp(elevio.ButtonType(btn), floor, true)
-						case STATE_NONE:
-							elevio.SetButtonLamp(elevio.ButtonType(btn), floor, false)
-						}
+			LocalStates := AllNodeOrderStates[localIP]
+			for floor := range receivedStates {
+				for btn, inputBtnState := range receivedStates[floor] {
+					updatedState := getNewState(inputBtnState, LocalStates[floor][btn])
+					LocalStates[floor][btn] = updatedState
+					switch updatedState {
+					case STATE_NEW:
+					case STATE_CONFIRMED:
+						elevio.SetButtonLamp(elevio.ButtonType(btn), floor, true)
+					case STATE_NONE:
+						elevio.SetButtonLamp(elevio.ButtonType(btn), floor, false)
 					}
 				}
-				if AllNodeOrderStates[localIP] != newOrderStates {
-					AllNodeOrderStates[localIP] = newOrderStates
-					hallOrderArrayTimer.Reset(1)
-				}
 			}
+			AllNodeOrderStates[localIP] = LocalStates
+			statesToBoolTimer.Reset(1)
+			fmt.Println(RSM_toString(AllNodeOrderStates))
 
-		case BtnPress := <-hallBtnPressCh:
-			newOrderStates := AllNodeOrderStates[localIP]
-			if newOrderStates[BtnPress.Floor][BtnPress.Button] == STATE_NONE {
-				newOrderStates[BtnPress.Floor][BtnPress.Button] = STATE_NEW
-				AllNodeOrderStates[localIP] = newOrderStates
-				hallOrderArrayTimer.Reset(1)
+			fmt.Println(AllNodeOrderStates)
+		case BtnPress := <-hallButtonEventCh:
+			LocalStates := AllNodeOrderStates[localIP]
+			if LocalStates[BtnPress.Floor][BtnPress.Button] == STATE_NONE {
+				LocalStates[BtnPress.Floor][BtnPress.Button] = STATE_NEW
+				AllNodeOrderStates[localIP] = LocalStates
+				statesToBoolTimer.Reset(1)
 			}
 		case executedOrder := <-executedHallOrderCh:
-			newOrderStates := AllNodeOrderStates[localIP]
-			if newOrderStates[executedOrder.Floor][executedOrder.Button] == STATE_CONFIRMED {
-				newOrderStates[executedOrder.Floor][executedOrder.Button] = STATE_NONE
+			LocalStates := AllNodeOrderStates[localIP]
+			if LocalStates[executedOrder.Floor][executedOrder.Button] == STATE_CONFIRMED {
+				LocalStates[executedOrder.Floor][executedOrder.Button] = STATE_NONE
+				AllNodeOrderStates[localIP] = LocalStates
+				statesToBoolTimer.Reset(1)
 				elevio.SetButtonLamp(executedOrder.Button, executedOrder.Floor, false)
 			}
-			AllNodeOrderStates[localIP] = newOrderStates
-			broadCastTimer.Reset(1)
-			hallOrderArrayTimer.Reset(1)
 		case <-broadCastTimer.C:
 			transmitCh <- NodeOrderStates{IP: localIP, OrderStates: AllNodeOrderStates[localIP]}
 			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 
-		case <-hallOrderArrayTimer.C:
+		case <-statesToBoolTimer.C:
 			select {
-			case confirmedOrdersCh <- orderStatesToBool(AllNodeOrderStates[localIP]):
+			case orderStatesToBoolCh <- orderStatesToBool(AllNodeOrderStates[localIP]):
 			default:
-				hallOrderArrayTimer.Reset(1)
+				statesToBoolTimer.Reset(1)
 			}
 		}
-		newOrderStates := AllNodeOrderStates[localIP]
+		// Confirm Local State based on AllNodeOrderStates
+		LocalStates := AllNodeOrderStates[localIP]
 		for floor := 0; floor < dt.N_FLOORS; floor++ {
 			for btn := 0; btn < dt.N_BUTTONS-1; btn++ {
 				if orderCanBeConfirmed(floor, btn, AllNodeOrderStates) {
-					newOrderStates[floor][btn] = STATE_CONFIRMED
+					LocalStates[floor][btn] = STATE_CONFIRMED
 					elevio.SetButtonLamp(elevio.ButtonType(btn), floor, true)
 				}
 			}
 		}
-		if AllNodeOrderStates[localIP] != newOrderStates {
-			AllNodeOrderStates[localIP] = newOrderStates
-			hallOrderArrayTimer.Reset(1)
+		if AllNodeOrderStates[localIP] != LocalStates {
+			AllNodeOrderStates[localIP] = LocalStates
+			statesToBoolTimer.Reset(1)
 		}
 	}
 }
 
 func orderCanBeConfirmed(floor, btn int,
 	AllNodeOrderStates map[string][dt.N_FLOORS][2]OrderState) bool {
-	for _, nodeOrderStates := range AllNodeOrderStates {
-		if nodeOrderStates[floor][btn] != STATE_NEW {
+	for _, nodeStates := range AllNodeOrderStates {
+		if nodeStates[floor][btn] != STATE_NEW {
 			return false
 		}
 	}
 	return true
 }
 
-func updateOrderState(inputState, currentState OrderState) OrderState {
+func getNewState(inputState, currentState OrderState) OrderState {
 	switch inputState {
 	case STATE_NONE:
 		if currentState == STATE_CONFIRMED {
@@ -174,7 +167,7 @@ func orderStatesToBool(orderStates [dt.N_FLOORS][2]OrderState) [dt.N_FLOORS][2]b
 	return hallOrders
 }
 
-func addNewEmptyNodes(peerList peers.PeerUpdate,
+func addAliveNodes(peerList peers.PeerUpdate,
 	AllNodeOrderStates map[string][dt.N_FLOORS][2]OrderState,
 ) map[string][dt.N_FLOORS][2]OrderState {
 	outputMap := make(map[string][dt.N_FLOORS][2]OrderState)
@@ -214,7 +207,8 @@ func withdrawOrderConfirmations(peerList peers.PeerUpdate,
 		outputMap[key] = value
 	}
 	for _, nodeIP := range peerList.Peers {
-		if orderStates, nodeOrdersSaved := outputMap[nodeIP]; nodeOrdersSaved {
+		orderStates, nodeOrdersSaved := outputMap[nodeIP]
+		if nodeOrdersSaved {
 			for floor := range orderStates {
 				for btn, state := range orderStates[floor] {
 					switch state {
@@ -238,4 +232,58 @@ func contains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+func RSM_toString(RSM map[string][dt.N_FLOORS][2]OrderState) string {
+	text := "####################################################################################################\n"
+	text = text + "______________________________________________REQ MAT________________________________________________\n\n"
+	separatorRow := "-------------------------------------------------------------------------------------------------------\n"
+
+	// Build the header
+	header := []string{"ID", "|1_UP", "|1_DWN", "|2_UP", "|2_DWN", "|3_UP", "|3_DWN", "|4_UP", "|4_DWN"}
+	var headerStr string
+	for _, v := range header {
+		headerStr += fmt.Sprintf("%-12s", v)
+	}
+	headerStr += "\n"
+	text = text + headerStr
+	text += separatorRow
+
+	// Iterate over each elevator's data
+
+	ids := []string{}
+	for id := range RSM {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		text += fmt.Sprintf("%-12s", id)
+		for _, state := range RSM[id] {
+			switch state[0] {
+			case "none":
+				text += "|NONE       "
+			case "new":
+				text += "|NEW        "
+			case "confirmed":
+				text += "|CONF       "
+			default:
+				text += "|UNDF       "
+			}
+			switch state[1] {
+			case "none":
+				text += "|NONE       "
+			case "new":
+				text += "|NEW        "
+			case "confirmed":
+				text += "|CONF       "
+			default:
+				text += "|UNDF       "
+			}
+		}
+		text += "\n"
+	}
+	text += separatorRow
+	text += "#######################################################################################################\n"
+
+	return text
 }

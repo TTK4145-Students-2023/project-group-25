@@ -33,7 +33,7 @@ var (
 	obstrCh    = make(chan bool)
 	elevDataCh = make(chan dt.ElevData)
 
-	confirmedOrdersCh = make(chan [dt.N_FLOORS][2]bool)
+	orderStatesToBoolCh = make(chan [dt.N_FLOORS][2]bool)
 
 	initCabRequestsCh = make(chan [dt.N_FLOORS]bool)
 )
@@ -60,7 +60,7 @@ func main() {
 
 	go elevDataDistributor.DataDistributor(localIP,
 		elevDataCh,
-		confirmedOrdersCh,
+		orderStatesToBoolCh,
 		costFuncInputCh,
 		peerUpdate_DataDistributorCh,
 		initCabRequestsCh)
@@ -68,7 +68,7 @@ func main() {
 	go orderStateHandler.OrderStateHandler(localIP,
 		hallButtonEventCh,
 		executedHallOrderCh,
-		confirmedOrdersCh,
+		orderStatesToBoolCh,
 		peerUpdate_OrderHandlerCh)
 
 	time.Sleep(time.Millisecond * 40)
