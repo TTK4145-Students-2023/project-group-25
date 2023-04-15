@@ -1,44 +1,36 @@
 package main
 
-// Import statements in alphabetic order
 import (
-	localip "project/Network/Utilities/localip"
-	peers "project/Network/Utilities/peers"
-	masterSlaveNTW "project/Network/masterSlaveNTW"
-	btnassign "project/buttonAssigner"
-	dt "project/commonDataTypes"
+	dt "project/dataTypes"
 	elevDataDistributor "project/distributingSystem/elevDataDistributor"
 	orderStateHandler "project/distributingSystem/orderStateHandler"
-	elevio "project/localElevator/elev_driver"
-	elevfsm "project/localElevator/elev_fsm"
+	elevfsm "project/localElevator/FSM"
+	btnEventSplitter "project/localElevator/btnEventSplitter"
+	elevio "project/localElevator/driver"
+	localip "project/network/localip"
+	peers "project/network/peers"
 	oassign "project/orderAssigner"
 	"time"
 )
 
 var (
-	masterSlaveRoleCh = make(chan dt.MasterSlaveRole)
-
-	costFuncInputCh              = make(chan dt.CostFuncInputSlice)
-	ordersFromMasterCh           = make(chan []dt.SlaveOrders)
-	ordersToSlavesCh             = make(chan []dt.SlaveOrders)
-	hallRequestsCh               = make(chan [dt.N_FLOORS][2]bool)
-	executedHallOrdersCh         = make(chan []elevio.ButtonEvent)
-	peerUpdate_MSCh              = make(chan peers.PeerUpdate)
-	peerUpdate_DataDistributorCh = make(chan peers.PeerUpdate)
-	peerUpdate_OrderHandlerCh    = make(chan peers.PeerUpdate)
-	peerTxEnableCh               = make(chan bool)
-
+	floorCh           = make(chan int)
+	obstrCh           = make(chan bool)
+	elevDataCh        = make(chan dt.ElevData)
 	buttonEventCh     = make(chan elevio.ButtonEvent)
 	cabButtonEventCh  = make(chan elevio.ButtonEvent)
 	hallButtonEventCh = make(chan elevio.ButtonEvent)
 
-	floorCh    = make(chan int)
-	obstrCh    = make(chan bool)
-	elevDataCh = make(chan dt.ElevData)
+	costFuncInputCh     = make(chan dt.CostFuncInputSlice)
+	executedHallOrderCh = make(chan elevio.ButtonEvent)
+	assignedOrdersCh    = make(chan [dt.N_FLOORS][2]bool)
+	statesToBoolCh      = make(chan [dt.N_FLOORS][2]bool)
+	initCabRequestsCh   = make(chan [dt.N_FLOORS]bool)
 
-	hallOrderArrayCh = make(chan [dt.N_FLOORS][2]bool)
-
-	initCabRequestsCh = make(chan [dt.N_FLOORS]bool)
+	peerUpdate_OrderAssCh        = make(chan peers.PeerUpdate)
+	peerUpdate_DataDistributorCh = make(chan peers.PeerUpdate)
+	peerUpdate_OrderHandlerCh    = make(chan peers.PeerUpdate)
+	isAliveCh                    = make(chan bool)
 )
 
 func main() {
@@ -49,49 +41,42 @@ func main() {
 	go elevio.PollFloorSensor(floorCh)
 	go elevio.PollButtons(buttonEventCh)
 	go elevio.PollObstructionSwitch(obstrCh)
+	go btnEventSplitter.BtnEventSplitter(buttonEventCh, hallButtonEventCh, cabButtonEventCh)
 
 	go peers.PeerListHandler(localIP,
-		peerTxEnableCh,
-		peerUpdate_MSCh,
+		peerUpdate_OrderAssCh,
 		peerUpdate_DataDistributorCh,
-		peerUpdate_OrderHandlerCh)
-
-	go masterSlaveNTW.MasterSlaveNTW(localIP,
-		peerUpdate_MSCh,
-		ordersToSlavesCh,
-		ordersFromMasterCh,
-		masterSlaveRoleCh)
+		peerUpdate_OrderHandlerCh,
+		isAliveCh)
 
 	go oassign.OrderAssigner(localIP,
-		masterSlaveRoleCh,
+		peerUpdate_OrderAssCh,
 		costFuncInputCh,
-		ordersFromMasterCh,
-		ordersToSlavesCh,
-		hallRequestsCh)
+		assignedOrdersCh)
 
 	go elevDataDistributor.DataDistributor(localIP,
-		elevDataCh,
-		hallOrderArrayCh,
-		costFuncInputCh,
 		peerUpdate_DataDistributorCh,
-		initCabRequestsCh)
+		initCabRequestsCh,
+		elevDataCh,
+		statesToBoolCh,
+		costFuncInputCh)
 
 	go orderStateHandler.OrderStateHandler(localIP,
+		peerUpdate_OrderHandlerCh,
 		hallButtonEventCh,
-		executedHallOrdersCh,
-		hallOrderArrayCh,
-		peerUpdate_OrderHandlerCh)
+		executedHallOrderCh,
+		statesToBoolCh)
 
 	time.Sleep(time.Millisecond * 40)
 
-	go elevfsm.FSM(hallRequestsCh,
-		cabButtonEventCh,
-		floorCh,
+	go elevfsm.FSM(floorCh,
 		obstrCh,
-		elevDataCh,
-		executedHallOrdersCh,
+		cabButtonEventCh,
 		initCabRequestsCh,
-		peerTxEnableCh)
+		assignedOrdersCh,
+		executedHallOrderCh,
+		elevDataCh,
+		isAliveCh)
 
-	btnassign.ButtonHandler(buttonEventCh, hallButtonEventCh, cabButtonEventCh)
+	select {}
 }

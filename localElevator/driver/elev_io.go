@@ -3,8 +3,8 @@ package elevio
 import (
 	"fmt"
 	"net"
+	dt "project/dataTypes"
 	"sync"
-	dt "project/commonDataTypes"
 	"time"
 )
 
@@ -51,7 +51,7 @@ func Init(addr string, numFloors int) {
 	_initialized = true
 }
 
-func ClearAllLights(){
+func ClearAllLights() {
 	for floor := 0; floor < dt.N_FLOORS; floor++ {
 		for button := 0; button < dt.N_BUTTONS; button++ {
 			SetButtonLamp(ButtonType(button), floor, false)

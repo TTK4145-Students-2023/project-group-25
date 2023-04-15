@@ -2,7 +2,7 @@ package printing
 
 import (
 	"fmt"
-	dt "project/commonDataTypes"
+	dt "project/dataTypes"
 	orderStateHandler "project/distributingSystem/orderStateHandler"
 	"sort"
 )
@@ -14,11 +14,11 @@ const (
 	STATE_CONFIRMED orderStateHandler.OrderState = "confirmed"
 )
 
-func WW_toString(WW map[string]dt.ElevData) string {
+func ElevData_toString(WW map[string]dt.ElevData) string {
 	// Create the separator row
 	separatorRow := "-------------------------------------------------------------------------------------------------------\n"
 	text := "####################################################################################################\n"
-	text += "________________________________________WorldView________________________________________________\n\n"
+	text += "________________________________________ ElevData________________________________________________\n\n"
 
 	// Find the maximum length of any ID.
 	ColLen := 14
@@ -48,9 +48,9 @@ func WW_toString(WW map[string]dt.ElevData) string {
 	return text
 }
 
-func RSM_toString(RSM map[string][dt.N_FLOORS][2]orderStateHandler.OrderState) string {
+func NOS_toString(RSM map[string][dt.N_FLOORS][2]orderStateHandler.OrderState) string {
 	text := "####################################################################################################\n"
-	text = text + "______________________________________________REQ MAT________________________________________________\n\n"
+	text = text + "______________________________________________NOS________________________________________________\n\n"
 	separatorRow := "-------------------------------------------------------------------------------------------------------\n"
 
 	// Build the header

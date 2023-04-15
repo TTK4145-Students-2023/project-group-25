@@ -1,8 +1,8 @@
 package elevfsm
 
 import (
-	dt "project/commonDataTypes"
-	elevio "project/localElevator/elev_driver"
+	dt "project/dataTypes"
+	elevio "project/localElevator/driver"
 	"time"
 )
 
@@ -13,11 +13,6 @@ const (
 	EB_MOVING    ElevatorBehaviour = "moving"
 	EB_IDLE      ElevatorBehaviour = "idle"
 )
-
-type DirnBehaviourPair struct {
-	Dirn      elevio.MotorDirection
-	Behaviour ElevatorBehaviour
-}
 
 type Elevator struct {
 	Floor            int
@@ -32,25 +27,25 @@ type WD_Role string
 const (
 	WD_ALIVE     WD_Role = "alive"
 	WD_DEAD      WD_Role = "dead"
-	watchDogTime         = 5 * time.Second
+	watchDogTime         = dt.WD_TIMEOUT
 )
 
 func FSM(
-	hallRequestsCh <-chan [dt.N_FLOORS][2]bool,
-	cabButtonEventCh <-chan elevio.ButtonEvent,
 	floorCh <-chan int,
 	obstrCh <-chan bool,
-	elevDataCh chan<- dt.ElevData,
-	executedHallOrdersCh chan<- []elevio.ButtonEvent,
+	cabButtonEventCh <-chan elevio.ButtonEvent,
 	initCabRequestsCh <-chan [dt.N_FLOORS]bool,
-	peerTxEnableCh chan<- bool) {
+	assignedOrdersCh <-chan [dt.N_FLOORS][2]bool,
+	executedHallOrderCh chan<- elevio.ButtonEvent,
+	elevDataCh chan<- dt.ElevData,
+	isAliveCh chan<- bool) {
 
 	var (
 		watchDogTimer  = time.NewTimer(time.Hour)
 		watchDogStatus = WD_ALIVE
 
-		executedHallOrders      = []elevio.ButtonEvent{}
-		executedHallOrdersTimer = time.NewTimer(time.Hour)
+		executedHallOrder      = elevio.ButtonEvent{}
+		executedHallOrderTimer = time.NewTimer(time.Hour)
 
 		obstr         = false
 		doorOpenTimer = time.NewTimer(time.Hour)
@@ -66,13 +61,13 @@ func FSM(
 				{false, false},
 				{false, false},
 				{false, false}},
-			doorOpenDuration: 3 * time.Second,
+			doorOpenDuration: dt.DOOR_OPEN_TIME,
 		}
 	)
 	doorOpenTimer.Stop()
 	elevDataTimer.Stop()
 	watchDogTimer.Stop()
-	executedHallOrdersTimer.Stop()
+	executedHallOrderTimer.Stop()
 
 initialization:
 	for {
@@ -84,10 +79,7 @@ initialization:
 			for floor, order := range e.CabRequests {
 				elevio.SetButtonLamp(elevio.BT_Cab, floor, order)
 			}
-
-			dirnBehaviourPair := requests_chooseDirection(e)
-			e.Behaviour = dirnBehaviourPair.Behaviour
-			e.Dirn = dirnBehaviourPair.Dirn
+			e.Dirn, e.Behaviour = requests_chooseDirection(e)
 			elevDataTimer.Reset(1)
 
 			switch e.Behaviour {
@@ -108,14 +100,12 @@ initialization:
 
 	for {
 		select {
-		case e.HallRequests = <-hallRequestsCh:
+		case e.HallRequests = <-assignedOrdersCh:
 			switch e.Behaviour {
 			case EB_DOOR_OPEN:
 			case EB_MOVING:
 			case EB_IDLE:
-				dirnBehaviourPair := requests_chooseDirection(e)
-				e.Behaviour = dirnBehaviourPair.Behaviour
-				e.Dirn = dirnBehaviourPair.Dirn
+				e.Dirn, e.Behaviour = requests_chooseDirection(e)
 				elevDataTimer.Reset(1)
 
 				switch e.Behaviour {
@@ -136,9 +126,7 @@ initialization:
 			case EB_DOOR_OPEN:
 			case EB_MOVING:
 			case EB_IDLE:
-				dirnBehaviourPair := requests_chooseDirection(e)
-				e.Behaviour = dirnBehaviourPair.Behaviour
-				e.Dirn = dirnBehaviourPair.Dirn
+				e.Dirn, e.Behaviour = requests_chooseDirection(e)
 
 				switch e.Behaviour {
 				case EB_IDLE:
@@ -173,17 +161,12 @@ initialization:
 			case EB_DOOR_OPEN:
 				e.CabRequests[e.Floor] = false
 				elevio.SetButtonLamp(elevio.BT_Cab, e.Floor, false)
-				executedHallOrders = requests_getExecutedHallOrders(e)
-				if len(executedHallOrders) > 0 {
-					e = requests_clearLocalHallRequest(e, executedHallOrders)
-					executedHallOrdersTimer.Reset(1)
-				}
-				dirnBehaviourPair := requests_chooseDirection(e)
-				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
-					e.Behaviour = dirnBehaviourPair.Behaviour
-					e.Dirn = dirnBehaviourPair.Dirn
-					elevDataTimer.Reset(1)
-				}
+				executedHallOrder = requests_getExecutedHallOrder(e)
+				e.HallRequests[executedHallOrder.Floor][executedHallOrder.Button] = false
+				executedHallOrderTimer.Reset(1)
+
+				e.Dirn, e.Behaviour = requests_chooseDirection(e)
+				elevDataTimer.Reset(1)
 				switch e.Behaviour {
 				case EB_DOOR_OPEN:
 					doorOpenTimer.Reset(e.doorOpenDuration)
@@ -211,7 +194,7 @@ initialization:
 				switch watchDogStatus {
 				case WD_ALIVE:
 				case WD_DEAD:
-					peerTxEnableCh <- true
+					isAliveCh <- true
 					watchDogStatus = WD_ALIVE
 				}
 			default:
@@ -221,16 +204,14 @@ initialization:
 			switch e.Behaviour {
 			case EB_IDLE:
 			case EB_MOVING, EB_DOOR_OPEN:
-				peerTxEnableCh <- false
+				isAliveCh <- false
 				watchDogStatus = WD_DEAD
 			}
-		case <-executedHallOrdersTimer.C:
-			executedHallOrdersCopy := make([]elevio.ButtonEvent, len(executedHallOrders))
-			copy(executedHallOrdersCopy, executedHallOrders)
+		case <-executedHallOrderTimer.C:
 			select {
-			case executedHallOrdersCh <- executedHallOrdersCopy:
+			case executedHallOrderCh <- executedHallOrder:
 			default:
-				executedHallOrdersTimer.Reset(1)
+				executedHallOrderTimer.Reset(1)
 			}
 		}
 	}

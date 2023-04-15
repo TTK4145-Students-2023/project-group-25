@@ -1,20 +1,19 @@
 package elevDataDistributor
 
 import (
-	"project/Network/Utilities/bcast"
-	"project/Network/Utilities/peers"
-	dt "project/commonDataTypes"
+	dt "project/dataTypes"
+	"project/network/bcast"
+	"project/network/peers"
 	"reflect"
 	"time"
 )
 
-// Statemachine for Distributor
 func DataDistributor(localIP string,
-	localElevDataCh <-chan dt.ElevData,
-	HallRequestsCh <-chan [dt.N_FLOORS][2]bool,
-	costFuncInputCh chan<- dt.CostFuncInputSlice,
 	peerUpdateCh <-chan peers.PeerUpdate,
-	cabRequestsToElevCh chan<- [dt.N_FLOORS]bool,
+	initCabRequestsCh chan<- [dt.N_FLOORS]bool,
+	localElevDataCh <-chan dt.ElevData,
+	statesToBoolCh <-chan [dt.N_FLOORS][2]bool,
+	costFuncInputCh chan<- dt.CostFuncInputSlice,
 ) {
 
 	var (
@@ -38,43 +37,46 @@ func DataDistributor(localIP string,
 	go bcast.Transmitter(dt.DATA_DISTRIBUTOR_PORT, transmittCh)
 
 	initTimer.Reset(time.Second * 3)
+	initCabRequests := [dt.N_FLOORS]bool{}
 initialization:
-	for cabRequests := [dt.N_FLOORS]bool{}; ; {
+	for {
 		select {
 		case receivedData := <-receiveCh:
 			senderIP := receivedData.SenderIP
 			allNodesInfo := receivedData.AllNodeInfo
 
-			for _, nodeInfo := range allNodesInfo {
-				if elevData := nodeInfo.Data; nodeInfo.IP == localIP {
-					for floor, order := range elevData.CabRequests {
-						cabRequests[floor] = cabRequests[floor] || order
+			for _, receivedNodeInfo := range allNodesInfo {
+				if receivedElevData := receivedNodeInfo.Data; receivedNodeInfo.IP == localIP {
+					for floor, receivedOrder := range receivedElevData.CabRequests {
+						initCabRequests[floor] = initCabRequests[floor] || receivedOrder
 					}
-				} else if nodeInfo.IP == senderIP {
-					allElevData[senderIP] = elevData
+				} else if receivedNodeInfo.IP == senderIP {
+					allElevData[senderIP] = receivedElevData
 				}
 			}
 		case <-initTimer.C:
-			cabRequestsToElevCh <- cabRequests
+			initCabRequestsCh <- initCabRequests
 			allElevData[localIP] = <-localElevDataCh
 			broadCastTimer.Reset(1)
 			break initialization
 		}
 	}
+
 	for {
 		select {
 		case peerList = <-peerUpdateCh:
 		case allElevData[localIP] = <-localElevDataCh:
-		case hallRequests := <-HallRequestsCh:
-			aliveNodesElevData := []dt.NodeInfo{{IP: localIP, Data: allElevData[localIP]}}
+		case hallRequests := <-statesToBoolCh:
+			aliveNodesData := []dt.NodeInfo{{IP: localIP, Data: allElevData[localIP]}}
 			for _, nodeIP := range peerList.Peers {
-				if nodeElevData, nodeElevDataSaved := allElevData[nodeIP]; nodeElevDataSaved {
-					aliveNodesElevData = append(aliveNodesElevData, dt.NodeInfo{IP: nodeIP, Data: nodeElevData})
+				nodeData, nodeDataExists := allElevData[nodeIP]
+				if nodeDataExists {
+					aliveNodesData = append(aliveNodesData, dt.NodeInfo{IP: nodeIP, Data: nodeData})
 				}
 			}
 			costFuncInputSlice = dt.CostFuncInputSlice{
 				HallRequests: hallRequests,
-				States:       aliveNodesElevData,
+				States:       aliveNodesData,
 			}
 			costFuncTimer.Reset(1)
 		case receivedData := <-receiveCh:
@@ -84,9 +86,9 @@ initialization:
 			if senderIP == localIP {
 				break
 			}
-			for _, nodeInfo := range allNodesInfo {
-				if nodeInfo.IP == senderIP && !reflect.DeepEqual(allElevData[senderIP], nodeInfo.Data) {
-					allElevData[senderIP] = nodeInfo.Data
+			for _, receivedNodeInfo := range allNodesInfo {
+				if receivedNodeInfo.IP == senderIP && !reflect.DeepEqual(allElevData[senderIP], receivedNodeInfo.Data) {
+					allElevData[senderIP] = receivedNodeInfo.Data
 				}
 			}
 		case <-broadCastTimer.C:
