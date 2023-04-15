@@ -24,7 +24,7 @@ var (
 	costFuncInputCh     = make(chan dt.CostFuncInputSlice)
 	executedHallOrderCh = make(chan elevio.ButtonEvent)
 	assignedOrdersCh    = make(chan [dt.N_FLOORS][2]bool)
-	confirmedOrdersCh   = make(chan [dt.N_FLOORS][2]bool)
+	statesToBoolCh      = make(chan [dt.N_FLOORS][2]bool)
 	initCabRequestsCh   = make(chan [dt.N_FLOORS]bool)
 
 	peerUpdate_OrderAssCh        = make(chan peers.PeerUpdate)
@@ -58,14 +58,14 @@ func main() {
 		peerUpdate_DataDistributorCh,
 		initCabRequestsCh,
 		elevDataCh,
-		confirmedOrdersCh,
+		statesToBoolCh,
 		costFuncInputCh)
 
 	go orderStateHandler.OrderStateHandler(localIP,
 		peerUpdate_OrderHandlerCh,
 		hallButtonEventCh,
 		executedHallOrderCh,
-		confirmedOrdersCh)
+		statesToBoolCh)
 
 	time.Sleep(time.Millisecond * 40)
 
