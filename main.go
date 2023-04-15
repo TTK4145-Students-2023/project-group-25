@@ -16,7 +16,7 @@ import (
 var (
 	floorCh           = make(chan int)
 	obstrCh           = make(chan bool)
-	elevDataCh        = make(chan dt.ElevData)
+	localElevDataCh        = make(chan dt.ElevData)
 	buttonEventCh     = make(chan elevio.ButtonEvent)
 	cabButtonEventCh  = make(chan elevio.ButtonEvent)
 	hallButtonEventCh = make(chan elevio.ButtonEvent)
@@ -24,7 +24,7 @@ var (
 	costFuncInputCh     = make(chan dt.CostFuncInputSlice)
 	executedHallOrderCh = make(chan elevio.ButtonEvent)
 	assignedOrdersCh    = make(chan [dt.N_FLOORS][2]bool)
-	statesToBoolCh      = make(chan [dt.N_FLOORS][2]bool)
+	orderStatesToBoolCh = make(chan [dt.N_FLOORS][2]bool)
 	initCabRequestsCh   = make(chan [dt.N_FLOORS]bool)
 
 	peerUpdate_OrderAssCh        = make(chan peers.PeerUpdate)
@@ -57,15 +57,15 @@ func main() {
 	go elevDataDistributor.DataDistributor(localIP,
 		peerUpdate_DataDistributorCh,
 		initCabRequestsCh,
-		elevDataCh,
-		statesToBoolCh,
+		localElevDataCh,
+		orderStatesToBoolCh,
 		costFuncInputCh)
 
 	go orderStateHandler.OrderStateHandler(localIP,
 		peerUpdate_OrderHandlerCh,
 		hallButtonEventCh,
 		executedHallOrderCh,
-		statesToBoolCh)
+		orderStatesToBoolCh)
 
 	time.Sleep(time.Millisecond * 40)
 
@@ -75,7 +75,7 @@ func main() {
 		initCabRequestsCh,
 		assignedOrdersCh,
 		executedHallOrderCh,
-		elevDataCh,
+		localElevDataCh,
 		isAliveCh)
 
 	select {}

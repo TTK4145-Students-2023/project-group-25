@@ -12,7 +12,7 @@ func DataDistributor(localIP string,
 	peerUpdateCh <-chan peers.PeerUpdate,
 	initCabRequestsCh chan<- [dt.N_FLOORS]bool,
 	localElevDataCh <-chan dt.ElevData,
-	statesToBoolCh <-chan [dt.N_FLOORS][2]bool,
+	orderStatesToBoolCh <-chan [dt.N_FLOORS][2]bool,
 	costFuncInputCh chan<- dt.CostFuncInputSlice,
 ) {
 
@@ -66,7 +66,7 @@ initialization:
 		select {
 		case peerList = <-peerUpdateCh:
 		case allElevData[localIP] = <-localElevDataCh:
-		case hallRequests := <-statesToBoolCh:
+		case hallRequests := <-orderStatesToBoolCh:
 			aliveNodesData := []dt.NodeInfo{{IP: localIP, Data: allElevData[localIP]}}
 			for _, nodeIP := range peerList.Peers {
 				nodeData, nodeDataExists := allElevData[nodeIP]

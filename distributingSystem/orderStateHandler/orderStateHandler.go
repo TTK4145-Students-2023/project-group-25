@@ -26,7 +26,7 @@ func OrderStateHandler(localIP string,
 	peerUpdateCh <-chan peers.PeerUpdate,
 	hallButtonEventCh <-chan elevio.ButtonEvent,
 	executedHallOrderCh <-chan elevio.ButtonEvent,
-	statesToBoolCh chan<- [dt.N_FLOORS][2]bool,
+	orderStatesToBoolCh chan<- [dt.N_FLOORS][2]bool,
 ) {
 	var (
 		peerList           = peers.PeerUpdate{}
@@ -100,7 +100,7 @@ func OrderStateHandler(localIP string,
 
 		case <-statesToBoolTimer.C:
 			select {
-			case statesToBoolCh <- orderStatesToBool(AllNodeOrderStates[localIP]):
+			case orderStatesToBoolCh <- orderStatesToBool(AllNodeOrderStates[localIP]):
 			default:
 				statesToBoolTimer.Reset(1)
 			}

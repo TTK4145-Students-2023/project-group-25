@@ -37,7 +37,7 @@ func FSM(
 	initCabRequestsCh <-chan [dt.N_FLOORS]bool,
 	assignedOrdersCh <-chan [dt.N_FLOORS][2]bool,
 	executedHallOrderCh chan<- elevio.ButtonEvent,
-	elevDataCh chan<- dt.ElevData,
+	localElevDataCh chan<- dt.ElevData,
 	isAliveCh chan<- bool) {
 
 	var (
@@ -189,7 +189,7 @@ initialization:
 			}
 		case <-elevDataTimer.C:
 			select {
-			case elevDataCh <- getElevatorData(e):
+			case localElevDataCh <- getElevatorData(e):
 				watchDogTimer.Reset(watchDogTime)
 				switch watchDogStatus {
 				case WD_ALIVE:

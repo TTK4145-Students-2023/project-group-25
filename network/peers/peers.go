@@ -30,11 +30,11 @@ func PeerListHandler(localIP string,
 
 		timerDataDistributor = time.NewTimer(time.Hour)
 		timerOrderHandler    = time.NewTimer(time.Hour)
-		timerMS              = time.NewTimer(time.Hour)
+		timerOrderAssigner   = time.NewTimer(time.Hour)
 	)
 	timerDataDistributor.Stop()
 	timerOrderHandler.Stop()
-	timerMS.Stop()
+	timerOrderAssigner.Stop()
 
 	go Transmitter(dt.PEER_LIST_PORT, localIP, isAliveCh)
 	go Receiver(dt.PEER_LIST_PORT, peerUpdateCh)
@@ -44,7 +44,7 @@ func PeerListHandler(localIP string,
 		case peerList = <-peerUpdateCh:
 			timerDataDistributor.Reset(1)
 			timerOrderHandler.Reset(1)
-			timerMS.Reset(1)
+			timerOrderAssigner.Reset(1)
 		case <-timerDataDistributor.C:
 			select {
 			case peerUpdate_DataDistributor <- peerList:
@@ -57,11 +57,11 @@ func PeerListHandler(localIP string,
 			default:
 				timerOrderHandler.Reset(1)
 			}
-		case <-timerMS.C:
+		case <-timerOrderAssigner.C:
 			select {
 			case peerUpdate_OrderAssCh <- peerList:
 			default:
-				timerMS.Reset(1)
+				timerOrderAssigner.Reset(1)
 			}
 		}
 	}
