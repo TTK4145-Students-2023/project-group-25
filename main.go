@@ -24,13 +24,13 @@ var (
 	costFuncInputCh     = make(chan dt.CostFuncInputSlice)
 	executedHallOrderCh = make(chan elevio.ButtonEvent)
 	assignedOrdersCh    = make(chan [dt.N_FLOORS][2]bool)
-	orderStatesToBoolCh = make(chan [dt.N_FLOORS][2]bool)
+	confirmedOrdersCh   = make(chan [dt.N_FLOORS][2]bool)
 	initCabRequestsCh   = make(chan [dt.N_FLOORS]bool)
 
 	peerUpdate_OrderAssCh        = make(chan peers.PeerUpdate)
 	peerUpdate_DataDistributorCh = make(chan peers.PeerUpdate)
 	peerUpdate_OrderHandlerCh    = make(chan peers.PeerUpdate)
-	peerTxEnableCh               = make(chan bool)
+	isAliveCh                    = make(chan bool)
 )
 
 func main() {
@@ -44,10 +44,10 @@ func main() {
 	go btnEventSplitter.BtnEventSplitter(buttonEventCh, hallButtonEventCh, cabButtonEventCh)
 
 	go peers.PeerListHandler(localIP,
-		peerTxEnableCh,
 		peerUpdate_OrderAssCh,
 		peerUpdate_DataDistributorCh,
-		peerUpdate_OrderHandlerCh)
+		peerUpdate_OrderHandlerCh,
+		isAliveCh)
 
 	go oassign.OrderAssigner(localIP,
 		peerUpdate_OrderAssCh,
@@ -55,28 +55,28 @@ func main() {
 		assignedOrdersCh)
 
 	go elevDataDistributor.DataDistributor(localIP,
-		elevDataCh,
-		orderStatesToBoolCh,
-		costFuncInputCh,
 		peerUpdate_DataDistributorCh,
-		initCabRequestsCh)
+		initCabRequestsCh,
+		elevDataCh,
+		confirmedOrdersCh,
+		costFuncInputCh)
 
 	go orderStateHandler.OrderStateHandler(localIP,
+		peerUpdate_OrderHandlerCh,
 		hallButtonEventCh,
 		executedHallOrderCh,
-		orderStatesToBoolCh,
-		peerUpdate_OrderHandlerCh)
+		confirmedOrdersCh)
 
 	time.Sleep(time.Millisecond * 40)
 
-	go elevfsm.FSM(assignedOrdersCh,
-		cabButtonEventCh,
-		floorCh,
+	go elevfsm.FSM(floorCh,
 		obstrCh,
-		elevDataCh,
-		executedHallOrderCh,
+		cabButtonEventCh,
 		initCabRequestsCh,
-		peerTxEnableCh)
+		assignedOrdersCh,
+		executedHallOrderCh,
+		elevDataCh,
+		isAliveCh)
 
 	select {}
 }

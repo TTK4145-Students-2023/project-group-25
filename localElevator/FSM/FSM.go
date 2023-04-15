@@ -14,11 +14,6 @@ const (
 	EB_IDLE      ElevatorBehaviour = "idle"
 )
 
-type DirnBehaviourPair struct {
-	Dirn      elevio.MotorDirection
-	Behaviour ElevatorBehaviour
-}
-
 type Elevator struct {
 	Floor            int
 	Dirn             elevio.MotorDirection
@@ -36,14 +31,14 @@ const (
 )
 
 func FSM(
-	assignedOrdersCh <-chan [dt.N_FLOORS][2]bool,
-	cabButtonEventCh <-chan elevio.ButtonEvent,
 	floorCh <-chan int,
 	obstrCh <-chan bool,
-	elevDataCh chan<- dt.ElevData,
-	executedHallOrderCh chan<- elevio.ButtonEvent,
+	cabButtonEventCh <-chan elevio.ButtonEvent,
 	initCabRequestsCh <-chan [dt.N_FLOORS]bool,
-	peerTxEnableCh chan<- bool) {
+	assignedOrdersCh <-chan [dt.N_FLOORS][2]bool,
+	executedHallOrderCh chan<- elevio.ButtonEvent,
+	elevDataCh chan<- dt.ElevData,
+	isAliveCh chan<- bool) {
 
 	var (
 		watchDogTimer  = time.NewTimer(time.Hour)
@@ -84,10 +79,7 @@ initialization:
 			for floor, order := range e.CabRequests {
 				elevio.SetButtonLamp(elevio.BT_Cab, floor, order)
 			}
-
-			dirnBehaviourPair := requests_chooseDirection(e)
-			e.Behaviour = dirnBehaviourPair.Behaviour
-			e.Dirn = dirnBehaviourPair.Dirn
+			e.Dirn, e.Behaviour = requests_chooseDirection(e)
 			elevDataTimer.Reset(1)
 
 			switch e.Behaviour {
@@ -113,9 +105,7 @@ initialization:
 			case EB_DOOR_OPEN:
 			case EB_MOVING:
 			case EB_IDLE:
-				dirnBehaviourPair := requests_chooseDirection(e)
-				e.Behaviour = dirnBehaviourPair.Behaviour
-				e.Dirn = dirnBehaviourPair.Dirn
+				e.Dirn, e.Behaviour = requests_chooseDirection(e)
 				elevDataTimer.Reset(1)
 
 				switch e.Behaviour {
@@ -136,9 +126,7 @@ initialization:
 			case EB_DOOR_OPEN:
 			case EB_MOVING:
 			case EB_IDLE:
-				dirnBehaviourPair := requests_chooseDirection(e)
-				e.Behaviour = dirnBehaviourPair.Behaviour
-				e.Dirn = dirnBehaviourPair.Dirn
+				e.Dirn, e.Behaviour = requests_chooseDirection(e)
 
 				switch e.Behaviour {
 				case EB_IDLE:
@@ -176,12 +164,8 @@ initialization:
 				executedHallOrder = requests_getExecutedHallOrder(e)
 				e.HallRequests[executedHallOrder.Floor][executedHallOrder.Button] = false
 				executedHallOrderTimer.Reset(1)
-				dirnBehaviourPair := requests_chooseDirection(e)
-				// If the direction or behaviour has changed, update the elevator data
-				if e.Dirn != dirnBehaviourPair.Dirn || e.Behaviour != dirnBehaviourPair.Behaviour {
-					e.Behaviour = dirnBehaviourPair.Behaviour
-					e.Dirn = dirnBehaviourPair.Dirn
-				}
+
+				e.Dirn, e.Behaviour = requests_chooseDirection(e)
 				elevDataTimer.Reset(1)
 				switch e.Behaviour {
 				case EB_DOOR_OPEN:
@@ -210,7 +194,7 @@ initialization:
 				switch watchDogStatus {
 				case WD_ALIVE:
 				case WD_DEAD:
-					peerTxEnableCh <- true
+					isAliveCh <- true
 					watchDogStatus = WD_ALIVE
 				}
 			default:
@@ -220,7 +204,7 @@ initialization:
 			switch e.Behaviour {
 			case EB_IDLE:
 			case EB_MOVING, EB_DOOR_OPEN:
-				peerTxEnableCh <- false
+				isAliveCh <- false
 				watchDogStatus = WD_DEAD
 			}
 		case <-executedHallOrderTimer.C:

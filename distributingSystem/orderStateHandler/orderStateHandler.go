@@ -23,23 +23,23 @@ const (
 )
 
 func OrderStateHandler(localIP string,
+	peerUpdateCh <-chan peers.PeerUpdate,
 	hallButtonEventCh <-chan elevio.ButtonEvent,
 	executedHallOrderCh <-chan elevio.ButtonEvent,
-	orderStatesToBoolCh chan<- [dt.N_FLOORS][2]bool,
-	peerUpdateCh <-chan peers.PeerUpdate,
+	confirmedOrdersCh chan<- [dt.N_FLOORS][2]bool,
 ) {
 	var (
 		peerList           = peers.PeerUpdate{}
 		AllNodeOrderStates = map[string][dt.N_FLOORS][2]OrderState{}
 
-		broadCastTimer    = time.NewTimer(time.Hour)
-		statesToBoolTimer = time.NewTimer(time.Hour)
+		broadCastTimer       = time.NewTimer(time.Hour)
+		confirmedOrdersTimer = time.NewTimer(time.Hour)
 
 		receiveCh  = make(chan NodeOrderStates)
 		transmitCh = make(chan NodeOrderStates)
 	)
 	broadCastTimer.Stop()
-	statesToBoolTimer.Stop()
+	confirmedOrdersTimer.Stop()
 
 	go bcast.Receiver(dt.ORDERSTATE_PORT, receiveCh)
 	go bcast.Transmitter(dt.ORDERSTATE_PORT, transmitCh)
@@ -52,7 +52,7 @@ func OrderStateHandler(localIP string,
 			newNodeOrderStates = withdrawOrderConfirmations(peerList, newNodeOrderStates)
 			AllNodeOrderStates = newNodeOrderStates
 			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
-			statesToBoolTimer.Reset(1)
+			confirmedOrdersTimer.Reset(1)
 
 		case receivedData := <-receiveCh:
 			receivedStates := receivedData.OrderStates
@@ -78,32 +78,32 @@ func OrderStateHandler(localIP string,
 				}
 			}
 			AllNodeOrderStates[localIP] = LocalStates
-			statesToBoolTimer.Reset(1)
+			confirmedOrdersTimer.Reset(1)
 
 		case BtnPress := <-hallButtonEventCh:
 			LocalStates := AllNodeOrderStates[localIP]
 			if LocalStates[BtnPress.Floor][BtnPress.Button] == STATE_NONE {
 				LocalStates[BtnPress.Floor][BtnPress.Button] = STATE_NEW
 				AllNodeOrderStates[localIP] = LocalStates
-				statesToBoolTimer.Reset(1)
+				confirmedOrdersTimer.Reset(1)
 			}
 		case executedOrder := <-executedHallOrderCh:
 			LocalStates := AllNodeOrderStates[localIP]
 			if LocalStates[executedOrder.Floor][executedOrder.Button] == STATE_CONFIRMED {
 				LocalStates[executedOrder.Floor][executedOrder.Button] = STATE_NONE
 				AllNodeOrderStates[localIP] = LocalStates
-				statesToBoolTimer.Reset(1)
+				confirmedOrdersTimer.Reset(1)
 				elevio.SetButtonLamp(executedOrder.Button, executedOrder.Floor, false)
 			}
 		case <-broadCastTimer.C:
 			transmitCh <- NodeOrderStates{IP: localIP, OrderStates: AllNodeOrderStates[localIP]}
 			broadCastTimer.Reset(dt.BROADCAST_PERIOD)
 
-		case <-statesToBoolTimer.C:
+		case <-confirmedOrdersTimer.C:
 			select {
-			case orderStatesToBoolCh <- orderStatesToBool(AllNodeOrderStates[localIP]):
+			case confirmedOrdersCh <- orderStatesToBool(AllNodeOrderStates[localIP]):
 			default:
-				statesToBoolTimer.Reset(1)
+				confirmedOrdersTimer.Reset(1)
 			}
 		}
 		// Confirm Local State based on AllNodeOrderStates
@@ -118,7 +118,7 @@ func OrderStateHandler(localIP string,
 		}
 		if AllNodeOrderStates[localIP] != LocalStates {
 			AllNodeOrderStates[localIP] = LocalStates
-			statesToBoolTimer.Reset(1)
+			confirmedOrdersTimer.Reset(1)
 		}
 	}
 }

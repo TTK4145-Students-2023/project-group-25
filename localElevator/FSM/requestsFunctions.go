@@ -47,46 +47,46 @@ func requests_here(e Elevator) bool {
 	return false
 }
 
-func requests_chooseDirection(e Elevator) DirnBehaviourPair {
+func requests_chooseDirection(e Elevator) (elevio.MotorDirection, ElevatorBehaviour) {
 	switch e.Dirn {
 	case elevio.MD_Up:
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
+			return elevio.MD_Up, EB_MOVING
 		}
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_DOOR_OPEN}
+			return elevio.MD_Down, EB_DOOR_OPEN
 		}
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
+			return elevio.MD_Down, EB_MOVING
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
+		return elevio.MD_Stop, EB_IDLE
 
 	case elevio.MD_Down:
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
+			return elevio.MD_Down, EB_MOVING
 		}
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_DOOR_OPEN}
+			return elevio.MD_Up, EB_DOOR_OPEN
 		}
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
+			return elevio.MD_Up, EB_MOVING
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
+		return elevio.MD_Stop, EB_IDLE
 
 	case elevio.MD_Stop: // there should only be one request in the Stop case. Checking up or down first is arbitrary.
 		if requests_here(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_DOOR_OPEN}
+			return elevio.MD_Stop, EB_DOOR_OPEN
 		}
 		if requests_above(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Up, Behaviour: EB_MOVING}
+			return elevio.MD_Up, EB_MOVING
 		}
 		if requests_below(e) {
-			return DirnBehaviourPair{Dirn: elevio.MD_Down, Behaviour: EB_MOVING}
+			return elevio.MD_Down, EB_MOVING
 		}
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
+		return elevio.MD_Stop, EB_IDLE
 
 	default:
-		return DirnBehaviourPair{Dirn: elevio.MD_Stop, Behaviour: EB_IDLE}
+		return elevio.MD_Stop, EB_IDLE
 	}
 }
 

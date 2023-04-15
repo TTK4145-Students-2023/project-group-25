@@ -3,8 +3,8 @@ package peers
 import (
 	"fmt"
 	"net"
-	"project/network/conn"
 	dt "project/dataTypes"
+	"project/network/conn"
 	"sort"
 	"time"
 )
@@ -19,10 +19,10 @@ const interval = 15 * time.Millisecond
 const timeout = 500 * time.Millisecond
 
 func PeerListHandler(localIP string,
-	peerTxEnableCh <-chan bool,
 	peerUpdate_OrderAssCh chan<- PeerUpdate,
 	peerUpdate_DataDistributor chan<- PeerUpdate,
 	peerUpdate_OrderHandler chan<- PeerUpdate,
+	isAliveCh <-chan bool,
 ) {
 	var (
 		peerUpdateCh = make(chan PeerUpdate)
@@ -36,7 +36,7 @@ func PeerListHandler(localIP string,
 	timerOrderHandler.Stop()
 	timerMS.Stop()
 
-	go Transmitter(dt.PEER_LIST_PORT, localIP, peerTxEnableCh)
+	go Transmitter(dt.PEER_LIST_PORT, localIP, isAliveCh)
 	go Receiver(dt.PEER_LIST_PORT, peerUpdateCh)
 
 	for {
